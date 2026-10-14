@@ -1,0 +1,11 @@
+# forti-cli provides forti-engine, the command engine forti-mcp links statically. Only the engine
+# is built when forti-cli is a subproject. For co-development, replace subprojects/forti-cli with a
+# checkout or a symlink to ../forti-cli; Meson then uses it instead of downloading.
+[wrap-git]
+url = https://github.com/valkyrianlabs/forti-cli.git
+# Pinned by the release process to a forti-cli tag.
+revision = REVISION_PLACEHOLDER
+depth = 1
+
+[provide]
+forti-engine = forti_engine_dep

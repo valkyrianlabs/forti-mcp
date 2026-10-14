@@ -1,0 +1,10 @@
+# forti-api (header-only SDK), needed by the forti-cli subproject's engine. System installs
+# (libforti-api-dev, Homebrew forti-api) are preferred; this wrap is the fallback for source builds.
+# For SDK co-development, replace subprojects/forti-api with a checkout or a symlink to ../forti-api.
+[wrap-git]
+url = https://github.com/valkyrianlabs/forti-api.git
+revision = v1.0.0
+depth = 1
+
+[provide]
+forti-api = forti_api_dep
