@@ -208,3 +208,43 @@ TEST(Stdio, CommandLine) {
     EXPECT_NE(bad.err.find("unknown option"), std::string::npos);
     EXPECT_EQ(run({"--max-bytes", "10"}, "").status, 2);
 }
+
+// security-audit.md S-16: a client that goes away mid-session (its end of stdout closed) ends the
+// server with a write error and status 1, not death by SIGPIPE.
+TEST(Stdio, VanishedClientIsAWriteErrorNotSigpipe) {
+    const char* binary = std::getenv("FORTI_MCP_BINARY");
+    ASSERT_NE(binary, nullptr);
+    auto home = temp_home();
+    std::vector<std::string> env_strings = {"FORTI_CONFIG_DIR=" + (home / "config").string(),
+                                            "FORTI_STATE_DIR=" + (home / "state").string(),
+                                            "FORTI_CACHE_DIR=" + (home / "cache").string(), "HOME=" + home.string(),
+                                            "PATH=/usr/bin:/bin"};
+    std::vector<char*> envp;
+    for (auto& s: env_strings) envp.push_back(s.data());
+    envp.push_back(nullptr);
+    std::string path = binary;
+    std::vector<char*> argv = {path.data(), nullptr};
+    int in[2], out[2];
+    ASSERT_EQ(::pipe(in), 0);
+    ASSERT_EQ(::pipe(out), 0);
+    posix_spawn_file_actions_t actions;
+    posix_spawn_file_actions_init(&actions);
+    posix_spawn_file_actions_adddup2(&actions, in[0], 0);
+    posix_spawn_file_actions_adddup2(&actions, out[1], 1);
+    posix_spawn_file_actions_addopen(&actions, 2, "/dev/null", O_WRONLY, 0);
+    for (int fd: {in[0], in[1], out[0], out[1]}) posix_spawn_file_actions_addclose(&actions, fd);
+    pid_t pid = 0;
+    ASSERT_EQ(posix_spawn(&pid, binary, &actions, nullptr, argv.data(), envp.data()), 0);
+    posix_spawn_file_actions_destroy(&actions);
+    ::close(in[0]);
+    ::close(out[1]);
+    ::close(out[0]);   // the client is gone
+    std::string ping = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}\n";
+    for (int i = 0; i < 4; ++i) (void) !::write(in[1], ping.data(), ping.size());
+    ::close(in[1]);
+    int status = 0;
+    ::waitpid(pid, &status, 0);
+    std::filesystem::remove_all(home);
+    ASSERT_TRUE(WIFEXITED(status)) << "terminated by signal " << WTERMSIG(status);
+    EXPECT_EQ(WEXITSTATUS(status), 1);
+}
