@@ -293,7 +293,7 @@ namespace forti::mcp {
                      {{"type", "object"},
                       {"additionalProperties", false},
                       {"required", {"plan_id"}},
-                      {"properties", {{"plan_id", {{"type", "string"}, {"minLength", 1}, {"maxLength", 128},
+                      {"properties", {{"plan_id", {{"type", "string"}, {"pattern", std::string(forti::engine::plan_id_pattern)},
                                                    {"description", "The plan_id forti_plan returned."}}}}}}},
                     {"outputSchema", envelope_schema()},
                     {"annotations", annotations("Apply a planned FortiGate change", false, true)},
