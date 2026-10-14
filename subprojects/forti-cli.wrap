@@ -3,8 +3,8 @@
 # checkout or a symlink to ../forti-cli; Meson then uses it instead of downloading.
 [wrap-git]
 url = https://github.com/valkyrianlabs/forti-cli.git
-# Pinned by the release process to a forti-cli tag.
-revision = REVISION_PLACEHOLDER
+# Pinned to a forti-cli commit until forti-cli has a release tag.
+revision = 36ac41d5127f48dc504feac4b46009ec102333a5
 depth = 1
 
 [provide]
