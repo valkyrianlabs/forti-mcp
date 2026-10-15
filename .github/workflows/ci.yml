@@ -75,12 +75,12 @@ jobs:
             exit 1
           fi
           ci/smoke-test.sh build/ci/src/forti-mcp
+          ccache --show-stats | head -5
 
       # Full-size fuzz tests (minutes under sanitizers) on main only; PRs run the quick slice in `unit`.
       - name: Full-size fuzz tests
         if: github.event_name == 'push'
         run: UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 meson test -C build/ci --suite fuzz --print-errorlogs
-          ccache --show-stats | head -5
 
   macos:
     name: Build and tests (macOS, Apple clang)
