@@ -18,7 +18,7 @@ Docker. The shared conventions are described in [payload-markdown's `ci/README.m
   Clean-install checks of the `.deb` use a stock image instead:
   `./ci/run-ci --image "$UBUNTU_IMAGE" --root bash -c 'apt-get install -y ./release/…'`.
 - ccache: `ci/run-ci` keeps `$cache/ccache` on the runner and mounts it at `/cache/ccache`
-  (`CCACHE_DIR`, `CCACHE_MAXSIZE=8G`); Meson picks ccache up from the image. The engine's 8 shard TUs
+  (`CCACHE_DIR`, `CCACHE_MAXSIZE=8G`); Meson picks ccache up from the image. The engine's shard TUs
   are ~70% of a build, so a PR that changes neither the forti-cli nor the forti-api pin gets them from
   the cache. macOS uses `actions/cache` on `~/Library/Caches/ccache`, keyed by the two wraps.
 - The container is capped at 12 GB (`CI_MEMORY`). forti-mcp compiles forti-cli's engine, whose shard
