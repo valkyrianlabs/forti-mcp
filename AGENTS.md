@@ -7,7 +7,7 @@ ecosystem architecture and contracts are in `../.claude/context/architecture.md`
 workspace ("Engine contract", "Operating modes", "MCP surface").
 
 ```sh
-ln -sfn "$(cd ../forti-cli && pwd)" subprojects/forti-cli   # engine co-development (else the wrap downloads the pinned tag)
+ln -sfn "$(cd ../forti-cli && pwd)" subprojects/forti-cli   # engine co-development (else the wrap clones the pinned commit)
 ln -sfn "$(cd ../forti-api && pwd)" subprojects/forti-api
 meson setup build/dev -Dtests=enabled --buildtype=debugoptimized
 ninja -C build/dev -j4                       # each engine shard TU needs ~1.2 GB of RAM
@@ -28,6 +28,17 @@ meson test -C build/dev --print-errorlogs    # suites: unit (protocol, tools, bu
 | `tests/e2e/` | Spawns the built binary with temporary config/state/cache directories |
 | `tests/integration/` | Real forti-mcp over stdio and real forti against forti-cli's `tests/mock-fortios` (needs a forti-cli with `subproject_cli`) |
 | `tests/support/fake_transport.hpp` | Scripted `fortiapi::Transport` (copied from forti-cli; keep in sync) |
+| `release.toml`, `debian/`, `packaging/`, `.release/` | vl-release contract, Debian and Homebrew packaging, staged release docs (`.claude/context/release.md`) |
+| `packaging/forti-cli-pin.sh` | Keeps package builds on the wrap's forti-cli revision (`vendor` for Debian, `check`/`update` for the formula's resource) |
+| `ci/`, `.github/` | CI container, smoke test, CI and release workflows |
+
+## Packaging
+
+The engine pin is `subprojects/forti-cli.wrap` (a full forti-cli commit id). Changing it: edit the
+`revision`, run `packaging/forti-cli-pin.sh update` (the Homebrew formula's resource follows), commit
+both. Release builds never use a symlinked checkout. Keep `.release/*_NEXT.md` current with
+user-visible changes and run `vlr check` (`.claude/skills/vl-release/`). Release details:
+`.claude/context/release.md`.
 
 ## Protocol
 

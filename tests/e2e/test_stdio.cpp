@@ -199,6 +199,8 @@ TEST(Stdio, CommandLine) {
     auto version = run({"--version"}, "");
     EXPECT_EQ(version.status, 0);
     EXPECT_EQ(version.out.rfind("forti-mcp ", 0), 0u);
+    EXPECT_NE(version.out.find(" (engine forti-cli "), std::string::npos) << version.out;   // what it was built from
+    EXPECT_NE(version.out.find(", forti-api "), std::string::npos) << version.out;
     auto help = run({"--help"}, "");
     EXPECT_EQ(help.status, 0);
     EXPECT_NE(help.out.find("--read-only"), std::string::npos);

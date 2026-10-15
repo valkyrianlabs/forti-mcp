@@ -27,10 +27,12 @@ endif
 # The mock and its harness come from the forti-cli subproject's source tree.
 python3 = find_program('python3', required : false)
 # A forti-cli that ships mock-fortios also has subproject_cli, which the top-level meson.build turns on
-# whenever tests are not disabled.
+# whenever tests are not disabled. Package builds turn it off again (-Dforti-cli:subproject_cli=false,
+# debian/rules): they run only the unit and e2e suites and need no `forti`.
 mock_fortios_dir = forti_cli.get_variable('mock_fortios_dir', '')
-if python3.found() and mock_fortios_dir != '' and not get_option('tests').disabled()
-    forti_cli_exe = forti_cli.get_variable('forti_exe')
+forti_cli_exes = [] + forti_cli.get_variable('forti_exe', [])
+if python3.found() and mock_fortios_dir != '' and forti_cli_exes.length() == 1 and not get_option('tests').disabled()
+    forti_cli_exe = forti_cli_exes[0]
     test('mcp-e2e', python3, args : [files('integration/test_mcp.py')],
          env : {'FORTI_MCP_BINARY' : forti_mcp_exe.full_path(), 'FORTI_BINARY' : forti_cli_exe.full_path(),
                 'FORTI_MOCK_DIR' : mock_fortios_dir, 'PYTHONDONTWRITEBYTECODE' : '1'},
@@ -40,5 +42,5 @@ if python3.found() and mock_fortios_dir != '' and not get_option('tests').disabl
                  '--binary', forti_mcp_exe.full_path()],
          depends : forti_mcp_exe, suite : 'integration')
 else
-    message('integration suite not built (needs python3 and a forti-cli subproject that ships tests/mock-fortios)')
+    message('integration suite not built (needs python3 and a forti-cli subproject that ships tests/mock-fortios and builds forti)')
 endif

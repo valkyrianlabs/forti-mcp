@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     if (command.action == mcp::Command::Action::version) {
-        std::cout << "forti-mcp " << FORTI_MCP_VERSION << "\n";
+        std::cout << "forti-mcp " << FORTI_MCP_VERSION << " (" << FORTI_MCP_BUILT_FROM << ")\n";
         return 0;
     }
 

@@ -1,6 +1,10 @@
-# forti_mcp_version.hpp carries the project version into the binary (serverInfo, --version).
+# forti_mcp_version.hpp carries the project version into the binary (serverInfo, --version), and for
+# --version what it was built from (the forti-cli engine revision and the forti-api version; see the
+# top-level meson.build).
 version_hpp = configure_file(output : 'forti_mcp_version.hpp',
-                             configuration : {'FORTI_MCP_VERSION' : '"' + meson.project_version() + '"'})
+                             configuration : {'FORTI_MCP_VERSION' : '"' + meson.project_version() + '"',
+                                              'FORTI_MCP_BUILT_FROM' : '"engine forti-cli ' + engine_revision
+                                                                       + ', forti-api ' + forti_api_version + '"'})
 
 mcp_inc = include_directories('.')
 

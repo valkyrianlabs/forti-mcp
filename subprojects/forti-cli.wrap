@@ -3,7 +3,9 @@
 # checkout or a symlink to ../forti-cli; Meson then uses it instead of downloading.
 [wrap-git]
 url = https://github.com/valkyrianlabs/forti-cli.git
-# Pinned to a forti-cli commit until forti-cli has a release tag.
+# Pinned to a full forti-cli commit id until forti-cli has a release tag. Package builds use exactly
+# this revision; after changing it run `packaging/forti-cli-pin.sh update` (the Homebrew formula's
+# forti-cli resource) and commit both (.claude/context/release.md, "Engine source").
 revision = a0456f1ca7d81a6f69bbac2b56aa39491d36aaa0
 depth = 1
 
