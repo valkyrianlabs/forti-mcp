@@ -42,7 +42,7 @@ namespace {
             EXPECT_EQ((*response)["jsonrpc"], "2.0");
             EXPECT_EQ((*response)["error"]["code"], code) << response->dump();
             EXPECT_TRUE((*response)["error"]["message"].is_string());
-            if (id) EXPECT_EQ((*response)["id"], *id);
+            if (id) { EXPECT_EQ((*response)["id"], *id); }
             else EXPECT_FALSE(response->contains("id")) << response->dump();
         }
 
@@ -224,7 +224,7 @@ TEST_F(Fixture, ToolDefinitions) {
     }
     EXPECT_EQ(names, (std::vector<std::string>{"forti_discover", "forti_read", "forti_plan", "forti_apply"}));
 
-    for (int i: {0, 1, 2}) EXPECT_EQ(tools[i]["annotations"]["readOnlyHint"], true) << names[i];
+    for (int i: {0, 1, 2}) { EXPECT_EQ(tools[i]["annotations"]["readOnlyHint"], true) << names[i]; }
     const json& apply = tools[3];
     EXPECT_EQ(apply["annotations"]["readOnlyHint"], false);
     EXPECT_EQ(apply["annotations"]["destructiveHint"], true);

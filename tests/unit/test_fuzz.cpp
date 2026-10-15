@@ -53,7 +53,7 @@ namespace {
         ASSERT_TRUE(response.is_object());
         EXPECT_EQ(response.value("jsonrpc", ""), "2.0");
         EXPECT_NE(response.contains("result"), response.contains("error")) << *line;
-        if (response.contains("id")) EXPECT_TRUE(response["id"].is_string() || response["id"].is_number_integer()) << *line;
+        if (response.contains("id")) { EXPECT_TRUE(response["id"].is_string() || response["id"].is_number_integer()) << *line; }
         if (response.contains("error")) {
             EXPECT_TRUE(response["error"]["code"].is_number_integer());
             EXPECT_TRUE(response["error"]["message"].is_string());
