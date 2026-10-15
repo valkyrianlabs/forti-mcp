@@ -1,23 +1,15 @@
-# Builds on Linux (Ubuntu 24.04, GCC 13, inside ci/run-ci) and macOS (Apple clang, Homebrew), runs the
-# unit, e2e and integration suites, and rehearses the Debian and Homebrew releases with vl-release.
-# Nothing here talks to a FortiGate (AGENTS.md); the integration suite uses forti-cli's mock FortiOS.
+# Pull-request validation, kept to a few minutes: exactly one unoptimized build per platform, which
+# every suite (unit, e2e, integration) runs against: Linux with ASan/UBSan, macOS plain. Plus a
+# seconds-long lint job. ccache keeps forti-cli's engine shards between runs (ci/run-ci on the
+# self-hosted runner, actions/cache on macOS).
 #
-# Every Linux run step executes in the disposable CI container (ci/run-ci, rootless Podman,
-# ci/Containerfile): no host sudo, host packages or Docker. Pull requests from forks run on
-# GitHub-hosted runners, never on the self-hosted one.
-#
-# Dependencies: development builds take forti-cli (the engine) and forti-api from the pinned wraps
-# (subprojects/forti-cli.wrap, subprojects/forti-api.wrap). The package job builds exactly like a
-# release: forti-cli at the wrap's revision, verified (packaging/forti-cli-pin.sh vendor), and
-# libforti-api-dev from apt.valkyrianlabs.com, offline (--wrap-mode=nodownload).
-#
-# Time: forti-mcp compiles forti-cli's engine, whose 8 shard TUs (generated SDK glue) are ~70% of a
-# build. ccache keeps them between runs (ci/run-ci on the self-hosted runner, actions/cache on macOS),
-# sanitizer builds leave them uninstrumented (forti-cli's engine/meson.build, once the pin includes
-# it), and independent work runs as parallel jobs: one build per job, never a second full build
-# appended to a job.
-# Memory: each shard TU needs ~2 GB at -Os. The CI container is capped at 12 GB (ci/run-ci) and the
-# macOS runner has 7 GB, so ninja parallelism is capped per job.
+# The optimized release build, the Debian rehearsal and the Homebrew formula live in package.yml:
+# they run when packaging can be affected, on main and on demand, not on every PR.
+# Nothing here talks to a FortiGate (AGENTS.md). Linux steps run in the disposable CI container
+# (ci/run-ci, ci/Containerfile). Development builds take forti-cli and forti-api from the pinned wraps.
+
+# Parallelism: ninja's default (every core). An unoptimized engine shard needs ~1.1 GB, so all 8 fit
+# in the CI container's 12 GB (ci/run-ci) and the macOS runner's 7 GB at its core count.
 name: CI
 
 on:
@@ -53,9 +45,9 @@ jobs:
         run: bash packaging/forti-cli-pin.sh check --download
 
   linux:
-    name: Build (Ubuntu 24.04, GCC 13)
+    name: Build and tests (Ubuntu 24.04, GCC 13, ASan/UBSan)
     runs-on: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && fromJSON('["ubuntu-latest"]') || fromJSON('["self-hosted","Linux","X64","ubuntu-latest-lts"]') }}
-    timeout-minutes: 90
+    timeout-minutes: 15
     defaults:
       run:
         shell: bash ./ci/run-ci bash -euo pipefail {0}
@@ -69,100 +61,31 @@ jobs:
           ccache --version | head -1
           openssl version
 
-      # The release build type (meson.build default), warnings are errors (the engine's included), and
-      # every suite in one run. The integration suite reports SKIP without openssl or forti's mock;
-      # here it must run.
-      - name: Build (warnings are errors) and run the tests
+      # One build, every suite: unoptimized (mock tests do not need optimization; it only slows the
+      # engine shards), warnings are errors (the engine's included), and ASan/UBSan on every
+      # hand-written TU (the engine's generated shards stay uninstrumented). The integration suite
+      # reports SKIP without openssl or forti's mock; here it must run.
+      - name: Build (warnings are errors, ASan/UBSan) and run every suite
         run: |
-          meson setup build/ci -Dtests=enabled -Dwerror=true
-          meson compile -C build/ci -j 4
-          meson test -C build/ci --suite unit --suite e2e --suite integration --print-errorlogs
+          meson setup build/ci -Dtests=enabled --buildtype=plain -Doptimization=0 -Ddebug=false -Dwerror=true -Db_sanitize=address,undefined -Db_lundef=false
+          meson compile -C build/ci
+          UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 meson test -C build/ci --suite unit --suite e2e --suite integration --print-errorlogs
           if grep -q '"result": "SKIP"' build/ci/meson-logs/testlog.json; then
             echo "a test was skipped" >&2
             exit 1
           fi
           ci/smoke-test.sh build/ci/src/forti-mcp
+
+      # Full-size fuzz tests (minutes under sanitizers) on main only; PRs run the quick slice in `unit`.
+      - name: Full-size fuzz tests
+        if: github.event_name == 'push'
+        run: UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 meson test -C build/ci --suite fuzz --print-errorlogs
           ccache --show-stats | head -5
-
-  # Its own job so it runs alongside the release build. No `forti` (subproject_cli=false): the
-  # integration suite runs in the release build. Until the forti-cli pin includes the uninstrumented
-  # shards (forti-cli b1dedf5, engine/meson.build), the 8 shards are instrumented and need about twice
-  # the memory, hence -j 2; raise it to 4 with that pin.
-  sanitizers:
-    name: Unit and e2e tests (ASan + UBSan, GCC 13)
-    runs-on: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && fromJSON('["ubuntu-latest"]') || fromJSON('["self-hosted","Linux","X64","ubuntu-latest-lts"]') }}
-    timeout-minutes: 90
-    defaults:
-      run:
-        shell: bash ./ci/run-ci bash -euo pipefail {0}
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-
-      - name: Build and run the unit and e2e tests under sanitizers
-        run: |
-          meson setup build/asan -Dtests=enabled -Dforti-cli:subproject_cli=false --buildtype=debugoptimized \
-            -Db_sanitize=address,undefined -Db_lundef=false
-          meson compile -C build/asan -j 2
-          UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 meson test -C build/asan --suite unit --suite e2e --print-errorlogs
-          ccache --show-stats | head -5
-
-  package:
-    name: Release contract and Debian rehearsal
-    runs-on: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && fromJSON('["ubuntu-latest"]') || fromJSON('["self-hosted","Linux","X64","ubuntu-latest-lts"]') }}
-    timeout-minutes: 90
-    defaults:
-      run:
-        shell: bash ./ci/run-ci bash -euo pipefail {0}
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-        with:
-          fetch-depth: 0
-
-      - name: Repository contract
-        id: state
-        run: |
-          vlr check
-          vlr install-skill --check
-          vlr status --github-output
-
-      # A full local release in this ephemeral checkout; nothing is published. `vlr build-deb` first
-      # puts forti-cli at the wrap's revision into subprojects/forti-cli (release.toml pre_build).
-      # Between releases (version not bumped yet) the rehearsal bumps the version in this ephemeral
-      # checkout only, so every PR still builds and validates the package.
-      - name: Release rehearsal
-        if: contains(fromJSON('["pending","prepared","unbumped"]'), steps.state.outputs.phase)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libforti-api-dev
-          dpkg-checkbuilddeps
-          if [ "${{ steps.state.outputs.phase }}" = unbumped ]; then vlr version bump minor; fi
-          vlr prepare
-          vlr build-deb
-          vlr source-archive
-          vlr homebrew formula
-          vlr checksums
-          vlr validate-artifacts
-
-      # Install the built .deb into a clean, stock Ubuntu 24.04 (container root, no host access): it
-      # must pull its runtime dependencies (libcurl) from the Ubuntu archive alone, work offline, and
-      # report the engine revision the wrap pins.
-      - name: Clean-install smoke test of the built package
-        if: contains(fromJSON('["pending","prepared","unbumped"]'), steps.state.outputs.phase)
-        shell: bash
-        run: |
-          # shellcheck disable=SC2016  # expanded inside the container
-          ./ci/run-ci --image "$UBUNTU_IMAGE" --root bash -euo pipefail -c '
-            apt-get update
-            apt-get install -y --no-install-recommends ./release/forti-mcp_*_amd64.deb
-            pinned="$(sed -n "s/^revision *= *//p" subprojects/forti-cli.wrap | cut -c1-7)"
-            /usr/bin/forti-mcp --version | grep -F "(engine forti-cli $pinned, forti-api "
-            ci/smoke-test.sh /usr/bin/forti-mcp
-          '
 
   macos:
     name: Build and tests (macOS, Apple clang)
     runs-on: macos-latest
-    timeout-minutes: 60
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -183,8 +106,8 @@ jobs:
       - name: Build and run the tests
         run: |
           clang++ --version | head -1
-          meson setup build -Dtests=enabled -Dwerror=true
-          meson compile -C build -j 3
+          meson setup build -Dtests=enabled --buildtype=plain -Doptimization=0 -Ddebug=false -Dwerror=true
+          meson compile -C build
           meson test -C build --suite unit --suite e2e --suite integration --print-errorlogs
           if grep -q '"result": "SKIP"' build/meson-logs/testlog.json; then
             echo "a test was skipped" >&2
@@ -198,25 +121,3 @@ jobs:
   # script prepares the release documents). Homebrew builds from source in its own sandbox, so this
   # job is separate and runs in parallel. Skipped while no release docs are staged, since
   # `vlr prepare` would refuse.
-  homebrew:
-    name: Homebrew formula (macOS)
-    runs-on: macos-latest
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-        with:
-          fetch-depth: 0
-
-      # vl-release from its pinned release tag (pure Python, no install needed).
-      - name: vl-release
-        run: |
-          git clone --quiet --depth 1 --branch "$VL_RELEASE_TAG" https://github.com/valkyrianlabs/vl-release.git "$RUNNER_TEMP/vl-release"
-          echo "$RUNNER_TEMP/vl-release/bin" >> "$GITHUB_PATH"
-
-      - name: Homebrew formula
-        run: |
-          phase="$(vlr status --json | python3 -c 'import json,sys; print(json.load(sys.stdin)["phase"])')"
-          case "$phase" in
-            pending | prepared | unbumped) bash .github/scripts/homebrew-local-install.sh ;;
-            *) echo "release phase $phase: no staged release docs, skipping the formula install" ;;
-          esac
