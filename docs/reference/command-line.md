@@ -43,7 +43,7 @@ the server's instructions say that plan and apply are not available.
 
 ```text
 $ forti-mcp --version
-forti-mcp 0.1.0 (engine forti-cli ecacc67, forti-api 1.0.1)
+forti-mcp 0.2.0 (engine forti-cli 6a19035, forti-api 1.0.1)
 ```
 
 ## Exit status
@@ -59,19 +59,29 @@ Errors during a session never end the process: they are JSON-RPC errors or tool 
 
 ## Environment and files
 
-forti-mcp needs no environment variables and no client `env` entry. It reads the same configuration
-and state as the `forti` CLI:
+forti-mcp needs no environment variables and no client `env` entry. It reads the same forti home as
+the `forti` CLI: `$FORTI_HOME`, else `~/.forti` (`forti home` prints every location).
 
 | What | Where | Override |
 |---|---|---|
-| Profiles (`config.json`) and credential files (`credentials/`) | `~/.config/forti` | `FORTI_CONFIG_DIR`, else `XDG_CONFIG_HOME/forti` |
-| Plans, approvals, audit log (`audit.jsonl`), pre-change backups | `~/.local/state/forti` | `FORTI_STATE_DIR`, else `XDG_STATE_HOME/forti` |
-| Cached live schemas | `~/.cache/forti` | `FORTI_CACHE_DIR`, else `XDG_CACHE_HOME/forti` |
+| Profiles (`config.json`) and file-stored secrets (`credentials/`) | `~/.forti` | `FORTI_CONFIG_DIR` |
+| Plans, approvals, audit log (`audit.jsonl`), pre-change backups | `~/.forti/state` | `FORTI_STATE_DIR` |
+| Cache (reserved; live schemas are not cached yet) | `~/.forti/cache` | `FORTI_CACHE_DIR` |
+| Client certificates from `forti cert create` | `~/.forti/certs/<profile>` | |
 
-On macOS, API keys stored with `forti configure` live in the login Keychain (service `forti`); the
-directories are the same as on Linux. The directories never depend on the working directory.
+`FORTI_HOME` moves the whole home; the `FORTI_*_DIR` variables move one location inside it. On
+macOS, API keys stored with `forti configure` live in the login Keychain (service `forti`), and
+`FORTI_SECRET_STORE=file` chooses the file store instead. The locations never depend on the working
+directory, so the client may start forti-mcp anywhere.
+
+:::callout[Pre-0.2 locations]{variant="note"}
+A setup from before 0.2 (`~/.config/forti`, `~/.local/state/forti`, `~/.cache/forti`, or the
+`XDG_*` variables) stays in use while `~/.forti/config.json` does not exist and neither `FORTI_HOME`
+nor `FORTI_CONFIG_DIR` is set. `forti home migrate` moves it into the home
+([Upgrading from 0.1](/getting-started/installation#upgrading-from-0-1)).
+:::
 
 :::callout[Path and ownership rules]{variant="warning"}
-The `FORTI_*_DIR` overrides must be absolute paths. forti refuses a `config.json` owned by another
-user or writable by group or others.
+`FORTI_HOME` and the `FORTI_*_DIR` overrides must be absolute paths. forti refuses a `config.json`
+owned by another user or writable by group or others.
 :::

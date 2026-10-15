@@ -71,7 +71,7 @@ come back as `"<redacted>"` ([Security](/reference/security)).
 ```
 
 `forti_plan` validates every operation against the catalog and the SDK's attribute types, reads the
-current objects, and stores the plan (owner-only, in forti's state directory). It never changes the
+current objects, and stores the plan (owner-only, in `~/.forti/state/`). It never changes the
 device. The result (`data`) carries:
 
 | Field | Meaning |
@@ -169,8 +169,8 @@ In an autonomous profile, `forti_apply` executes immediately. In every mode that
 2. re-reads every object the plan touches and checks the device's serial number, refusing with
    `stale_plan` if anything changed since planning (plan again);
 3. checks that the audit log can be written, and refuses with `config` (nothing sent) if not;
-4. for a critical-risk plan, first saves a configuration backup (owner-only, in forti's state
-   directory) and refuses with `policy_denied` if it cannot, unless the profile sets
+4. for a critical-risk plan, first saves a configuration backup (owner-only, in
+   `~/.forti/state/`) and refuses with `policy_denied` if it cannot, unless the profile sets
    `"backup_before_critical": false`;
 5. runs the operations in order, never retrying a request that may have reached the device, and
    verifies each one by reading it back (monitor actions cannot be read back and are reported

@@ -35,12 +35,18 @@ through the **FortiOS REST API only**. It never runs SSH or CLI commands on the 
 :::
 
 ```bash
-claude mcp add --scope user forti -- forti-mcp     # or: forti install mcp
+forti configure                          # a device profile in ~/.forti
+forti install mcp --scope workspace      # the forti workspace: ~/.forti
+cd ~/.forti && claude                    # or: cd ~/.forti && codex
 ```
+
+Everything lives in one directory, the **forti home** (`~/.forti`, or `$FORTI_HOME`): device
+profiles, file-stored credentials, client certificates, plans and the audit log. It is also the workspace where AI
+agents get the firewall tools. An agent started in any other project does not see them.
 
 :::buttons{align="left" stack="mobile" gap="md"}
 ::button[Install]{href="/getting-started/installation" variant="primary"}
-::button[Connect a client]{href="/getting-started/connecting-clients" variant="secondary"}
+::button[Set up the workspace]{href="/getting-started/connecting-clients" variant="secondary"}
 ::button[GitHub]{href="https://github.com/valkyrianlabs/forti-mcp" variant="outline" newTab=true}
 :::
 
@@ -63,8 +69,9 @@ closes it. No daemon, no network listener, no background service.
 :::
 
 :::card[The operator decides what may change]{eyebrow="Modes"}
-Each device profile has a mode, `read-only` (the default), `guarded` or `autonomous`, set in
-`forti configure`. Nothing an MCP client sends can change a mode or approve a plan.
+Each device profile has its own mode, `read-only` (the default), `guarded` or `autonomous`, set in
+`forti configure`. One server reaches every FortiGate in the forti home. Nothing an MCP client sends
+can change a mode or approve a plan.
 :::
 
 :::card[Bounded results]{eyebrow="Paging"}
@@ -73,8 +80,8 @@ listing is cut, the result says where to continue.
 :::
 
 :::card[Secrets stay out of the conversation]{eyebrow="Security"}
-Device secrets in read results come back as `"<redacted>"`, and API tokens never appear in the
-client's configuration.
+Device secrets in read results come back as `"<redacted>"`, API tokens never appear in the client's
+configuration, and the workspace's deny rules keep the agent out of `~/.forti/credentials/`.
 :::
 
 :::card[Both protocol eras]{eyebrow="Protocol"}
@@ -94,9 +101,8 @@ requests and back. It never runs the `forti` executable, so the two packages ins
 :::callout[Install forti as well]{variant="info"}
 You still want `forti` next to forti-mcp. Device profiles and credentials are created with
 `forti configure`, guarded-mode approvals are given with `forti plan approve`, and
-`forti install mcp` registers this server with Claude Code and Codex. Both programs read the same
-configuration (`~/.config/forti`) and state, so a plan made in one can be inspected, approved or
-applied in the other.
+`forti install mcp` sets up the workspace for Claude Code and Codex. Both programs use the same forti
+home (`~/.forti`), so a plan made in one can be inspected, approved or applied in the other.
 :::
 
 ## Where to go next
@@ -117,7 +123,7 @@ Install forti-mcp from the APT repository or Homebrew, or build it from source.
   href="/getting-started/connecting-clients"
   eyebrow="Getting started"
 }
-Configure a device profile and register forti-mcp with Claude Code, Codex or another MCP client.
+Set up the `~/.forti` workspace with `forti install mcp`, or register forti-mcp by hand.
 :::
 
 :::card[The workflow: discover, read, plan, apply]{
@@ -132,6 +138,20 @@ How a model uses the four tools, learns a profile's mode and handles guarded app
   eyebrow="Guide"
 }
 What each mode allows, what guarded mode does not stop, and the limits of recovery.
+:::
+
+:::card[Several FortiGates]{
+  href="/guides/multiple-devices"
+  eyebrow="Guide"
+}
+A profile per device, `--profile` and the per-request `profile` field.
+:::
+
+:::card[Security]{
+  href="/reference/security"
+  eyebrow="Reference"
+}
+Where secrets and certificates live, redaction, and what the server can never do.
 :::
 
 :::card[Tools reference]{

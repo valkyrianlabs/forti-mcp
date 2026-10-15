@@ -60,7 +60,7 @@ sudo apt update && sudo apt install forti-mcp
 **From source**: see [Building](#building).
 
 `forti-mcp --version` names what it was built from, e.g.
-`forti-mcp 0.1.0 (engine forti-cli a0456f1, forti-api 1.0.1)`.
+`forti-mcp 0.2.0 (engine forti-cli 6a19035, forti-api 1.0.1)`.
 
 ### forti-mcp and forti-cli
 
@@ -68,15 +68,24 @@ sudo apt update && sudo apt install forti-mcp
 [forti-cli](https://github.com/valkyrianlabs/forti-cli) and never runs the `forti` executable, so
 neither package depends on the other. You still want the `forti` CLI next to it (the
 `forti-cli` package or formula): device profiles and credentials are created with `forti configure`,
-guarded-mode approvals are given with `forti plan approve`, and `forti install mcp` registers this
-server with Claude Code and Codex. The two read the same configuration (`~/.config/forti`) and state.
+guarded-mode approvals are given with `forti plan approve`, and `forti install mcp` sets up the agent
+workspace for Claude Code and Codex. The two use the same forti home, `~/.forti` (or `$FORTI_HOME`):
+profiles, file-stored credentials, certificates, plans and the audit log. A pre-0.2 setup in
+`~/.config/forti` keeps working until `forti home migrate` moves it.
 Without forti-cli, write the client entry by hand (below) and provide `config.json` yourself.
 
 ## Setup
 
-1. Configure a device profile with the CLI: `forti configure` (host, API token, mode).
-2. Register the server with your AI client. `forti install mcp` does this for Claude Code and Codex.
-   To do it by hand:
+1. Configure a device profile with the CLI: `forti configure` (host, API token, mode). Repeat it
+   for each FortiGate; the model picks one per request with the `profile` field.
+2. Set up the forti workspace (recommended): forti-mcp registered in `~/.forti` only, with deny
+   rules and a Codex permission profile that keep credentials out of the agent's context.
+   ```sh
+   forti install mcp --scope workspace      # add --trust-codex-workspace for Codex
+   cd ~/.forti && claude                    # or: cd ~/.forti && codex
+   ```
+   Agents started in any other project do not get the firewall tools.
+3. Or register the server by hand:
 
    **Claude Code**
    ```sh
@@ -96,7 +105,7 @@ Without forti-cli, write the client entry by hand (below) and provide `config.js
    ```
 
 No `env` entry is needed: `forti-mcp` reads its profiles and secret store itself (the macOS Keychain,
-or `~/.config/forti/credentials`). Never put an API token in client configuration.
+or `~/.forti/credentials`). Never put an API token in client configuration.
 
 ## Options
 

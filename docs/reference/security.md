@@ -1,6 +1,6 @@
 ---
 title: Security
-description: Untrusted device data, secret redaction, credentials, and why forti-mcp never runs SSH or CLI commands.
+description: Untrusted device data, secret redaction, where credentials and certificates live, the workspace deny rules, and why forti-mcp never runs SSH or CLI commands.
 order: 105
 status: published
 tags:
@@ -62,13 +62,50 @@ as a value to write.
 :::callout[Limits of redaction]{variant="note"}
 Name-based redaction can miss an attribute that a later FortiOS version adds; `ENC ` values are
 caught whatever their name. Stored plan files keep the real values, because apply writes them and
-compares the device against them; they are owner-only (0600) files in forti's state directory.
+compares the device against them; they are owner-only (0600) files in `~/.forti/state/`.
+:::
+
+## Where secrets and certificates live
+
+Everything forti keeps is in the forti home, `~/.forti` (or `$FORTI_HOME`), created with mode 0700:
+
+| Path in `~/.forti` | What | Protection |
+|---|---|---|
+| `config.json` | Profiles: hosts, modes and *references* to secrets, never a secret | 0600; refused if another user owns it or group or others can write it |
+| `credentials/` | API keys and certificate passwords in the file store (Linux, or `FORTI_SECRET_STORE=file`) | 0600 files in a 0700 directory, each bound to its profile's `host:port` |
+| `certs/<profile>/` | `forti cert create`: `client.p12` (the profile's client certificate), `client.pass` (its password), `ca.crt`, and the private CA key in `ca/` | `client.p12`, `client.pass` and the CA key 0600 (`ca/` 0700); the CA key never leaves the machine |
+| `state/` | Plans (with the real values they write), approvals, the audit log and pre-change backups | Owner-only files |
+
+On macOS, API keys go to the login Keychain (service `forti`) instead of `credentials/`. A
+certificate password lives in `client.pass` unless `forti cert create --keychain` puts it in the
+secret store. forti-mcp reads all of these itself; none of them needs to be in the agent's context.
+
+## The workspace keeps the agent out
+
+`forti install mcp --scope workspace` makes the forti home the agent's working directory, so it also
+adds rules that keep the agent's own file tools away from the secrets beside it
+([Connecting AI clients](/getting-started/connecting-clients#keeping-secrets-out-of-the-agents-context)):
+
+- **Claude Code** (`.claude/settings.json`): `permissions.deny` for `Read(/credentials/**)`,
+  `Read(/certs/**/*.pass)`, `Read(/certs/**/*.p12)`, `Read(/certs/**/ca/**)` and
+  `Edit(/config.json)`.
+- **Codex** (`.codex/config.toml`): the `forti-workspace` permission profile denies `credentials`,
+  `certs/**/*.pass`, `certs/**/*.p12` and `certs/**/ca/**` to sandboxed commands and makes
+  `config.json` read-only. Codex applies it only once it trusts `~/.forti`.
+- **Both**: the generated `AGENTS.md` tells the agent never to read those files and never to run
+  `forti plan approve`, `forti configure`, `forti profile` or `forti cert`.
+
+:::callout[Guard rails, not a boundary]{variant="note"}
+The rules stop an agent from reading a secret by accident; they do not bind forti-mcp, which runs
+outside the sandbox and must read the credentials, nor a process you allow to run arbitrary
+commands as you.
 :::
 
 ## Credentials
 
 - forti-mcp reads API keys from forti's secret store (the macOS Keychain, or owner-only credential
-  files), or from the environment variable or helper command a profile names. The client
+  files in `~/.forti/credentials/`), or from the environment variable, helper command or owner-only
+  file a profile names. The client
   configuration holds no secret and needs no `env` ([Connecting AI clients](/getting-started/connecting-clients)).
 - A stored key is bound to its profile's `host:port` and is released only to a profile that still
   points there, so another `config.json` reusing a profile name cannot send your key elsewhere.
@@ -76,6 +113,9 @@ compares the device against them; they are owner-only (0600) files in forti's st
   records.
 - TLS is always verified: peer certificate and host name, with no option to turn it off. Self-signed
   devices use the profile's CA bundle or `resolve_ip`.
+- A profile can also authenticate with a client certificate (FortiOS PKI peer authentication of the
+  API user). `forti cert create` makes a private CA and the certificate in `~/.forti/certs/<profile>/`
+  and prints the FortiGate steps; the password is never printed.
 - Core dumps are disabled at startup, because the process holds API keys and device data in memory.
 
 ## REST only: no SSH, no CLI

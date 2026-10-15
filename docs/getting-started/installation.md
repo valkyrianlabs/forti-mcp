@@ -14,9 +14,10 @@ from the ValkyrianLabs APT repository, from Homebrew, or build it from source, t
 version it reports.
 
 :::callout[Install forti as well]{variant="info"}
-forti-mcp does not depend on the forti-cli package, but you will want `forti` as well to create
-device profiles and approve plans (see [How it relates to forti-cli](/#how-it-relates-to-forti-cli)).
-Each install path below includes it.
+forti-mcp does not depend on the forti-cli package, but you will want `forti` as well: it creates
+the forti home (`~/.forti`) and its device profiles, approves plans and sets up the agent workspace
+(see [How it relates to forti-cli](/#how-it-relates-to-forti-cli)). Each install path below includes
+it.
 :::
 
 ## Install
@@ -41,7 +42,7 @@ echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/valkyrianlabs.gpg] https://apt
 
 sudo apt update
 sudo apt install -y forti-mcp
-sudo apt install -y forti-cli      # the forti CLI: profiles, approvals, client registration
+sudo apt install -y forti-cli      # the forti CLI: the forti home, profiles, approvals, workspace
 ```
 
 The package installs `/usr/bin/forti-mcp`.
@@ -86,15 +87,52 @@ forti-mcp --version
 ```
 
 ```text
-forti-mcp 0.1.0 (engine forti-cli ecacc67, forti-api 1.0.1)
+forti-mcp 0.2.0 (engine forti-cli 6a19035, forti-api 1.0.1)
 ```
 
 The version line names what the binary was built from: the forti-cli engine revision and the
 forti-api version. A build from a modified engine checkout shows the revision with `-dirty`.
 
+## The forti home
+
+forti-mcp keeps nothing of its own. It reads the **forti home** that the `forti` CLI manages:
+`~/.forti`, or the directory `$FORTI_HOME` names. `forti configure` creates it (mode 0700) with the
+first device profile, and `forti home` shows every location in it:
+
+```text
+$ forti home
+forti home: ~/.forti
+  config       ~/.forti/config.json
+  credentials  ~/.forti/credentials/  file store
+  state        ~/.forti/state/  plans, approvals, audit log, backups
+  cache        ~/.forti/cache/
+  certs        ~/.forti/certs/  forti cert create
+  secrets      macOS Keychain (service "forti")
+```
+
+The home is also where you start your AI agent: `forti install mcp --scope workspace` registers
+forti-mcp there and nowhere else ([Connecting AI clients](/getting-started/connecting-clients)).
+[Command line](/reference/command-line#environment-and-files) lists the variables that move single
+locations.
+
+### Upgrading from 0.1
+
+Releases before 0.2 kept the configuration in `~/.config/forti`, the state in
+`~/.local/state/forti` and the cache in `~/.cache/forti` (or under the `XDG_*` variables). While
+`~/.forti/config.json` does not exist, that older configuration does and `FORTI_HOME` is not set,
+forti and forti-mcp keep using the old locations, so an existing setup works unchanged. Move it into the home with:
+
+```bash
+forti home migrate
+```
+
+It moves `config.json`, `credentials/`, the state and the cache, keeping their modes, never
+overwrites a `config.json` already in the home, and is harmless to run again. Keychain items need no
+change. `forti home` and `forti doctor` point out a setup that has not been migrated.
+
 ## Next
 
 :::buttons{align="left" gap="md"}
-::button[Connect an AI client]{href="/getting-started/connecting-clients" variant="primary"}
+::button[Set up the workspace]{href="/getting-started/connecting-clients" variant="primary"}
 ::button[Safety and modes]{href="/guides/safety-and-modes" variant="secondary"}
 :::

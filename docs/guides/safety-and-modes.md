@@ -131,6 +131,6 @@ administrative access.
 
 :::callout[Treat backups like credentials]{variant="warning"}
 A configuration backup holds the device's complete configuration, including FortiOS-encrypted
-secrets, most of them reversible. forti keeps the 20 most recent backups in its state directory
-(owner-only) and never logs or prints them.
+secrets, most of them reversible. forti keeps the 20 most recent backups in its state
+directory, `~/.forti/state/` (owner-only), and never logs or prints them.
 :::
