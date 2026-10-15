@@ -9,6 +9,8 @@ no daemon and no network listener: it exits when the client closes it. It links 
 as the `forti` CLI ([forti-cli](https://github.com/valkyrianlabs/forti-cli)), built on the
 [forti-api](https://github.com/valkyrianlabs/forti-api) SDK.
 
+Full documentation: [docs/](docs/index.md).
+
 ## Tools
 
 | Tool | Does | Touches the device |
