@@ -22,7 +22,7 @@ One level of nested "  - " detail bullets is allowed. Consolidate; don't paste c
   package or the forti executable.
 - Built against the system libforti-api-dev (>= 1.0.1) with
   --wrap-mode=nodownload: the package build fetches nothing.
-- Release build profile: size-optimized (-Os in place of -O2), NDEBUG, and
-  section garbage collection (-ffunction-sections -fdata-sections,
-  --gc-sections); the network-free unit and e2e suites run unless nocheck.
+- Release build profile: -O3 in place of dpkg's -O2, NDEBUG, and section
+  garbage collection (-ffunction-sections -fdata-sections, --gc-sections); the
+  network-free unit and e2e suites run against that build unless nocheck.
 - amd64 only (vl-release supports one architecture per package contract).
