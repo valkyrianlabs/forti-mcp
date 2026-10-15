@@ -281,3 +281,18 @@ TEST(Validate, Subset) {
     EXPECT_NE(validate(schema, {{"a", 1}, {"zz", 1}})->find("unknown property \"zz\""), std::string::npos);
     EXPECT_TRUE(validate(schema, json::array()));
 }
+
+// security-audit.md S-03: secrets are redacted in every forti_read result, and no argument reveals them.
+TEST_F(Tools, ReadRedactsDeviceSecretsAndCannotReveal) {
+    json row = {{"name", "hq"}, {"psksecret", "ENC c2VjcmV0"}, {"remote-gw", "198.51.100.1"}};
+    transport->reply(200, forti::fake::envelope(json::array({row})));
+    json result = call("forti_read", {{"resource", "vpn.ipsec/phase1-interface"}});
+    EXPECT_EQ(result["content"][0]["text"].get<std::string>().find("c2VjcmV0"), std::string::npos);
+    json env = envelope(result);
+    EXPECT_EQ(env["data"][0]["psksecret"], "<redacted>");
+    EXPECT_EQ(env["meta"]["redacted"], json({"/*/psksecret"}));
+
+    json refused = envelope(call("forti_read", {{"resource", "vpn.ipsec/phase1-interface"}, {"reveal", true}}));
+    EXPECT_EQ(refused["error"]["code"], "usage");
+}
+

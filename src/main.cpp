@@ -19,10 +19,14 @@
 #include <vector>
 
 #include <fcntl.h>
+#include <sys/resource.h>
 #include <unistd.h>
 
 int main(int argc, char** argv) {
     using namespace forti;
+    // No core dumps: the process holds API keys and device secrets in memory.
+    struct rlimit no_core{0, 0};
+    ::setrlimit(RLIMIT_CORE, &no_core);
 
     std::vector<std::string_view> args(argv + 1, argv + argc);
     mcp::Command command;

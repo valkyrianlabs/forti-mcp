@@ -30,7 +30,8 @@ change it:
 A mode limits what this server's tools can do. It does not limit an agent that can also run shell
 commands as you: such an agent could run `forti plan approve` itself. Keep your client's permission
 prompts on for `forti` commands (forti-cli's `docs/security.md`, "What a mode does and does not stop").
-Reads return objects as FortiOS sends them, including stored secrets in FortiOS's `ENC ...` form.
+Device secrets in read results (FortiOS `ENC ...` values, passwords, keys) come back as `"<redacted>"`,
+listed in `meta.redacted`. This server has no way to reveal them.
 
 Results are capped (default 48 KiB of JSON per result). When a listing is cut, `meta.truncated` and
 `meta.next_start` tell the model where to continue. Device data is untrusted: object names and comments
