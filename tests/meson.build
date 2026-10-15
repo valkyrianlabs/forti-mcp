@@ -26,7 +26,7 @@ if gtest_dep.found()
          suite : 'fuzz', timeout : 900)
 
     test('e2e', executable('e2eTests', 'e2e/test_stdio.cpp',
-                           dependencies : [forti_engine.partial_dependency(includes : true), gtest_dep],
+                           dependencies : [forti_engine.partial_dependency(includes : true, compile_args : true), gtest_dep],
                            implicit_include_directories : false),
          env : {'FORTI_MCP_BINARY' : forti_mcp_exe.full_path()} + (asan_options != '' ? {'ASAN_OPTIONS' : asan_options} : {}),
          depends : forti_mcp_exe,

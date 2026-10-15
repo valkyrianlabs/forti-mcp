@@ -103,6 +103,7 @@ jobs:
 
       - name: Build artifacts from the prepared work tree
         run: |
+          export DEB_BUILD_OPTIONS="parallel=$(ci/build-jobs)"   # memory-aware, every core it allows
           vlr build-deb
           vlr source-archive
           vlr homebrew formula

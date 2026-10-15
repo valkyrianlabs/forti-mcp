@@ -30,7 +30,7 @@ maintainer = "Cooper Larson <cooper@valkyrianlabs.com>"
 pre_build = [["bash", "packaging/forti-cli-pin.sh", "vendor"]]
 # dpkg-buildpackage defaults to one job; -J4 lets debhelper run four (each engine shard TU needs ~2 GB
 # with GCC, and the CI container is capped at 12 GB).
-build_command = ["dpkg-buildpackage", "-us", "-uc", "-b", "-J4"]
+build_command = ["dpkg-buildpackage", "-us", "-uc", "-b"]
 # build-deb copies the work tree, not a Git commit (Git metadata never comes along): never let
 # credentials, local tooling state, a co-development forti-api checkout or a Meson package cache into
 # the build tree.
