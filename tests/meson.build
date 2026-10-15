@@ -2,6 +2,11 @@
 # fortiapi::Transport (support/fake_transport.hpp); the end-to-end test spawns the built binary with
 # temporary config, state and cache directories.
 gtest_dep = dependency('gtest', main : true, required : get_option('tests'))
+
+# Sanitizer builds leave the engine shards uninstrumented (forti-cli's engine/meson.build). libc++
+# annotates std::vector for ASan, so a vector filled by an uninstrumented shard and read by instrumented
+# code is reported as a "container-overflow" that is not one. Every other ASan check stays on.
+asan_options = get_option('b_sanitize').contains('address') ? 'detect_container_overflow=0' : ''
 if gtest_dep.found()
     test('unit', executable('unitTests',
                             'unit/test_protocol.cpp',
@@ -12,12 +17,13 @@ if gtest_dep.found()
                             include_directories : include_directories('support'),
                             dependencies : [mcp_core_dep, gtest_dep],
                             implicit_include_directories : false),
+         env : asan_options != '' ? {'ASAN_OPTIONS' : asan_options} : {},
          suite : 'unit')
 
     test('e2e', executable('e2eTests', 'e2e/test_stdio.cpp',
                            dependencies : [forti_engine.partial_dependency(includes : true), gtest_dep],
                            implicit_include_directories : false),
-         env : {'FORTI_MCP_BINARY' : forti_mcp_exe.full_path()},
+         env : {'FORTI_MCP_BINARY' : forti_mcp_exe.full_path()} + (asan_options != '' ? {'ASAN_OPTIONS' : asan_options} : {}),
          depends : forti_mcp_exe,
          suite : 'e2e')
 endif

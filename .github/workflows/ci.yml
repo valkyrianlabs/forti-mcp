@@ -11,9 +11,13 @@
 # release: forti-cli at the wrap's revision, verified (packaging/forti-cli-pin.sh vendor), and
 # libforti-api-dev from apt.valkyrianlabs.com, offline (--wrap-mode=nodownload).
 #
-# Memory: forti-mcp compiles forti-cli's engine, whose shard TUs need ~2 GB each with GCC at -O2/-Os
-# and more with sanitizers. The CI container is capped at 12 GB (ci/run-ci) and the macOS runner has
-# 7 GB, so ninja parallelism is capped per job and the sanitizer build doubles the shards.
+# Time: forti-mcp compiles forti-cli's engine, whose 8 shard TUs (generated SDK glue) are ~70% of a
+# build. ccache keeps them between runs (ci/run-ci on the self-hosted runner, actions/cache on macOS),
+# sanitizer builds leave them uninstrumented (forti-cli's engine/meson.build, once the pin includes
+# it), and independent work runs as parallel jobs: one build per job, never a second full build
+# appended to a job.
+# Memory: each shard TU needs ~2 GB at -Os. The CI container is capped at 12 GB (ci/run-ci) and the
+# macOS runner has 7 GB, so ninja parallelism is capped per job.
 name: CI
 
 on:
@@ -51,7 +55,7 @@ jobs:
   linux:
     name: Build (Ubuntu 24.04, GCC 13)
     runs-on: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && fromJSON('["ubuntu-latest"]') || fromJSON('["self-hosted","Linux","X64","ubuntu-latest-lts"]') }}
-    timeout-minutes: 120
+    timeout-minutes: 90
     defaults:
       run:
         shell: bash ./ci/run-ci bash -euo pipefail {0}
@@ -62,30 +66,45 @@ jobs:
         run: |
           g++ --version | head -1
           meson --version
+          ccache --version | head -1
           openssl version
 
       # The release build type (meson.build default), warnings are errors (the engine's included), and
-      # every suite. The integration suite reports SKIP without openssl or forti's mock; here it must run.
-      - name: Build (warnings are errors) and run the unit, e2e and integration suites
+      # every suite in one run. The integration suite reports SKIP without openssl or forti's mock;
+      # here it must run.
+      - name: Build (warnings are errors) and run the tests
         run: |
           meson setup build/ci -Dtests=enabled -Dwerror=true
           meson compile -C build/ci -j 4
-          meson test -C build/ci --print-errorlogs
+          meson test -C build/ci --suite unit --suite e2e --suite integration --print-errorlogs
           if grep -q '"result": "SKIP"' build/ci/meson-logs/testlog.json; then
             echo "a test was skipped" >&2
             exit 1
           fi
           ci/smoke-test.sh build/ci/src/forti-mcp
+          ccache --show-stats | head -5
 
-      # Sanitizers roughly double a shard's memory: twice the shards (half the endpoints per TU) and
-      # three jobs keep the peak well under the container's 12 GB. No `forti` here (subproject_cli):
-      # the integration suite already ran above.
-      - name: Unit and e2e tests under AddressSanitizer + UndefinedBehaviorSanitizer
+  # Its own job so it runs alongside the release build. No `forti` (subproject_cli=false): the
+  # integration suite runs in the release build. Until the forti-cli pin includes the uninstrumented
+  # shards (forti-cli b1dedf5, engine/meson.build), the 8 shards are instrumented and need about twice
+  # the memory, hence -j 2; raise it to 4 with that pin.
+  sanitizers:
+    name: Unit and e2e tests (ASan + UBSan, GCC 13)
+    runs-on: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && fromJSON('["ubuntu-latest"]') || fromJSON('["self-hosted","Linux","X64","ubuntu-latest-lts"]') }}
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash ./ci/run-ci bash -euo pipefail {0}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Build and run the unit and e2e tests under sanitizers
         run: |
-          meson setup build/asan -Dtests=enabled -Dforti-cli:engine_shards=16 -Dforti-cli:subproject_cli=false \
-            --buildtype=debugoptimized -Db_sanitize=address,undefined -Db_lundef=false
-          meson compile -C build/asan -j 3
+          meson setup build/asan -Dtests=enabled -Dforti-cli:subproject_cli=false --buildtype=debugoptimized \
+            -Db_sanitize=address,undefined -Db_lundef=false
+          meson compile -C build/asan -j 2
           UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 meson test -C build/asan --suite unit --suite e2e --print-errorlogs
+          ccache --show-stats | head -5
 
   package:
     name: Release contract and Debian rehearsal
@@ -141,28 +160,52 @@ jobs:
           '
 
   macos:
-    name: Build and Homebrew formula (macOS, Apple clang)
+    name: Build and tests (macOS, Apple clang)
     runs-on: macos-latest
-    timeout-minutes: 90
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-        with:
-          fetch-depth: 0
 
       - name: Install Homebrew packages
-        run: brew install meson ninja googletest
+        run: brew install meson ninja googletest ccache
 
-      - name: Build and run the unit, e2e and integration suites
+      # Keyed by the engine and SDK pins: a PR that changes neither restores every engine shard from
+      # the cache.
+      - name: Compiler cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/Library/Caches/ccache
+          key: ccache-macos-${{ hashFiles('subprojects/forti-cli.wrap', 'subprojects/forti-api.wrap') }}-${{ github.sha }}
+          restore-keys: |
+            ccache-macos-${{ hashFiles('subprojects/forti-cli.wrap', 'subprojects/forti-api.wrap') }}-
+            ccache-macos-
+
+      - name: Build and run the tests
         run: |
           clang++ --version | head -1
           meson setup build -Dtests=enabled -Dwerror=true
           meson compile -C build -j 3
-          meson test -C build --print-errorlogs
+          meson test -C build --suite unit --suite e2e --suite integration --print-errorlogs
           if grep -q '"result": "SKIP"' build/meson-logs/testlog.json; then
             echo "a test was skipped" >&2
             exit 1
           fi
           ci/smoke-test.sh build/src/forti-mcp
+          ccache --show-stats | head -5
+
+  # Installs the formula (forti-api from valkyrianlabs/tap, the engine from its forti-cli resource)
+  # from a throwaway local tap and runs its test block and the smoke test (ephemeral checkout: the
+  # script prepares the release documents). Homebrew builds from source in its own sandbox, so this
+  # job is separate and runs in parallel. Skipped while no release docs are staged, since
+  # `vlr prepare` would refuse.
+  homebrew:
+    name: Homebrew formula (macOS)
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
 
       # vl-release from its pinned release tag (pure Python, no install needed).
       - name: vl-release
@@ -170,10 +213,6 @@ jobs:
           git clone --quiet --depth 1 --branch "$VL_RELEASE_TAG" https://github.com/valkyrianlabs/vl-release.git "$RUNNER_TEMP/vl-release"
           echo "$RUNNER_TEMP/vl-release/bin" >> "$GITHUB_PATH"
 
-      # Installs the formula (forti-api from valkyrianlabs/tap, the engine from its forti-cli resource)
-      # from a throwaway local tap and runs its test block and the smoke test (ephemeral checkout: the
-      # script prepares the release documents). Skipped while no release docs are staged, since
-      # `vlr prepare` would refuse.
       - name: Homebrew formula
         run: |
           phase="$(vlr status --json | python3 -c 'import json,sys; print(json.load(sys.stdin)["phase"])')"

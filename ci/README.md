@@ -17,9 +17,13 @@ Docker. The shared conventions are described in [payload-markdown's `ci/README.m
 - Workflows set `defaults.run.shell: bash ./ci/run-ci bash -euo pipefail {0}` on their Linux jobs.
   Clean-install checks of the `.deb` use a stock image instead:
   `./ci/run-ci --image "$UBUNTU_IMAGE" --root bash -c 'apt-get install -y ./release/…'`.
+- ccache: `ci/run-ci` keeps `$cache/ccache` on the runner and mounts it at `/cache/ccache`
+  (`CCACHE_DIR`, `CCACHE_MAXSIZE=8G`); Meson picks ccache up from the image. The engine's 8 shard TUs
+  are ~70% of a build, so a PR that changes neither the forti-cli nor the forti-api pin gets them from
+  the cache. macOS uses `actions/cache` on `~/Library/Caches/ccache`, keyed by the two wraps.
 - The container is capped at 12 GB (`CI_MEMORY`). forti-mcp compiles forti-cli's engine, whose shard
-  TUs need about 2 GB each with GCC at -O2/-Os (more with sanitizers), so builds run with `-j 4` at
-  most and the sanitizer build doubles the shards.
+  TUs need about 2 GB each with GCC at -Os, so builds run with `-j 4` at most. Each CI job builds once;
+  the sanitizer build and the Homebrew formula install are separate jobs that run in parallel.
 
 Build locally the way CI does (needs Podman):
 
