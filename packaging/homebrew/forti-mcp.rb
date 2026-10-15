@@ -3,7 +3,7 @@
 # Formula template. `vlr homebrew formula` renders the release url/sha256 into
 # release/homebrew/forti-mcp.rb, which `vlr homebrew publish` commits to valkyrianlabs/homebrew-tap.
 class FortiMcp < Formula
-  desc "FortiOS MCP server: FortiGate discovery, reads and planned changes for AI clients"
+  desc "FortiOS MCP server: FortiGate discovery, reads and planned changes"
   homepage "https://github.com/valkyrianlabs/forti-mcp"
   url "https://github.com/valkyrianlabs/forti-mcp/releases/download/v0.1.0/forti-mcp-0.1.0.tar.gz"
   sha256 "TODO_REPLACE_WITH_RELEASE_ARCHIVE_SHA256"
