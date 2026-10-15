@@ -6,14 +6,14 @@
 # Checks `forti-mcp --version` (including the engine revision it was built from), then plays an MCP
 # client over stdio: the `initialize` handshake, `tools/list` and an offline `forti_discover` resource
 # search (the catalog is compiled in; no profile, device or network is needed). Checks that nothing
-# was written to the config or state directories and that a bad option exits 2. POSIX tools only: it
+# was written to the forti home (or anywhere in HOME) and that a bad option exits 2. POSIX tools only: it
 # also runs in a stock ubuntu:24.04 with nothing but the .deb installed.
 set -euo pipefail
 
 mcp="${1:-forti-mcp}"
 scratch="$(mktemp -d)"
 trap 'rm -rf "$scratch"' EXIT
-export HOME="$scratch/home" FORTI_CONFIG_DIR="$scratch/config" XDG_STATE_HOME="$scratch/state" XDG_CACHE_HOME="$scratch/cache"
+export HOME="$scratch/home" FORTI_HOME="$scratch/forti"
 mkdir -p "$HOME"
 
 fail() {
@@ -50,7 +50,7 @@ status=0
 "$mcp" --no-such-option > /dev/null 2>&1 || status=$?
 [ "$status" -eq 2 ] || fail "an unknown option exited $status, expected 2"
 
-if [ -n "$(find "$FORTI_CONFIG_DIR" "$XDG_STATE_HOME" -type f 2>/dev/null)" ]; then
+if [ -n "$(find "$FORTI_HOME" "$HOME" -type f 2>/dev/null)" ]; then
   fail "an offline session wrote files"
 fi
 echo "smoke-test: ok"

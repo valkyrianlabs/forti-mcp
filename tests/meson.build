@@ -1,6 +1,6 @@
 # Network-free tests: nothing here talks to a FortiGate. The engine runs against a scripted
 # fortiapi::Transport (support/fake_transport.hpp); the end-to-end test spawns the built binary with
-# temporary config, state and cache directories.
+# temporary config, state and cache directories and a temporary FORTI_HOME.
 gtest_dep = dependency('gtest', main : true, required : get_option('tests'))
 
 # Sanitizer builds leave the engine shards uninstrumented (forti-cli's engine/meson.build). libc++

@@ -30,6 +30,14 @@ namespace forti::fake {
             return *this;
         }
 
+        // A non-JSON reply (file downloads such as a configuration backup).
+        FakeTransport& reply_raw(long status, std::string body, std::string content_type = "application/octet-stream") {
+            fortiapi::HttpResponse response{status, std::move(body)};
+            response.headers.emplace_back("Content-Type", std::move(content_type));
+            script.emplace_back(std::move(response));
+            return *this;
+        }
+
         FakeTransport& fail(int code, bool before_send) {
             script.emplace_back(fortiapi::TransportError("scripted transport failure", code, before_send));
             return *this;
@@ -55,7 +63,7 @@ namespace forti::fake {
     // whose every client talks to `transport`.
     inline engine::Options options(std::shared_ptr<FakeTransport> transport, engine::Mode mode = engine::Mode::read_only) {
         engine::Options options;
-        options.paths = {"/nonexistent/forti-test/config", "/nonexistent/forti-test/state", "/nonexistent/forti-test/cache"};
+        options.paths = {"/nonexistent/forti-test/config", "/nonexistent/forti-test/state", "/nonexistent/forti-test/cache", {}};
         options.secrets = engine::memory_secret_store();
         options.secrets->put("lab/api-key", "test-key", "fortigate.test:8443");
         engine::ProfileSet profiles;

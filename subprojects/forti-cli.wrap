@@ -6,7 +6,7 @@ url = https://github.com/valkyrianlabs/forti-cli.git
 # Pinned to a full forti-cli commit id until forti-cli has a release tag. Package builds use exactly
 # this revision; after changing it run `packaging/forti-cli-pin.sh update` (the Homebrew formula's
 # forti-cli resource) and commit both (.claude/context/release.md, "Engine source").
-revision = ecacc679d81880b194eb2472ecf42d179c4632d8
+revision = 6a19035e7a0a8692a9059beffb4e127d03791a3b
 depth = 1
 
 [provide]

@@ -34,6 +34,9 @@ class McpTest(unittest.TestCase):
     def setUp(self) -> None:
         self.sb = Sandbox(forti=FORTI, forti_mcp=FORTI_MCP).__enter__()
         self.addCleanup(self.sb.__exit__, None, None, None)
+        # The harness points FORTI_HOME (and every FORTI_*_DIR) at its temporary directory, so neither
+        # binary ever resolves the real forti home (~/.forti).
+        self.assertTrue(self.sb.env.get("FORTI_HOME", "").startswith(str(self.sb.root)), self.sb.env)
         self.mock = self.sb.mock
         self.transcripts: list[str] = []
         configured = self.sb.configure(mode=self.mode)

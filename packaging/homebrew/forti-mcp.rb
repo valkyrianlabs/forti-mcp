@@ -22,8 +22,8 @@ class FortiMcp < Formula
   # subprojects/forti-cli.wrap pins (packaging/forti-cli-pin.sh keeps the two in step). forti-mcp
   # installs independently: it needs neither the forti-cli formula nor the `forti` executable.
   resource "forti-cli" do
-    url "https://github.com/valkyrianlabs/forti-cli/archive/ecacc679d81880b194eb2472ecf42d179c4632d8.tar.gz"
-    sha256 "9d10e500726ddbbe23e89346236720ec636bd25244e0b1f7d8102497019a1b6f"
+    url "https://github.com/valkyrianlabs/forti-cli/archive/6a19035e7a0a8692a9059beffb4e127d03791a3b.tar.gz"
+    sha256 "93f8bd709d1973896a3e008ef13a3184a659dcd1c5a7583c0d0cca3abaebc773"
   end
 
   def install
@@ -46,9 +46,7 @@ class FortiMcp < Formula
     assert_match "forti-mcp #{version} (engine forti-cli ", shell_output("#{bin}/forti-mcp --version")
 
     # Offline: an MCP client's handshake and tool listing need no profile, device or network.
-    ENV["FORTI_CONFIG_DIR"] = (testpath/"config").to_s
-    ENV["XDG_STATE_HOME"] = (testpath/"state").to_s
-    ENV["XDG_CACHE_HOME"] = (testpath/"cache").to_s
+    ENV["FORTI_HOME"] = (testpath/"forti").to_s
     requests = [
       { jsonrpc: "2.0", id: 1, method: "initialize",
         params: { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "brew", version: "1" } } },

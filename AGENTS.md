@@ -25,7 +25,7 @@ meson test -C build/dev --print-errorlogs    # suites: unit (protocol, tools, bu
 | `src/options.*` | Command-line flags |
 | `src/stdio.*`, `src/main.cpp` | The newline-delimited stdin/stdout loop and process setup |
 | `tests/unit/` | GoogleTest over `Server::handle` and the tools, engine on a scripted transport |
-| `tests/e2e/` | Spawns the built binary with temporary config/state/cache directories |
+| `tests/e2e/` | Spawns the built binary with a temporary `FORTI_HOME` and config/state/cache directories |
 | `tests/integration/` | Real forti-mcp over stdio and real forti against forti-cli's `tests/mock-fortios` (needs a forti-cli with `subproject_cli`) |
 | `tests/support/fake_transport.hpp` | Scripted `fortiapi::Transport` (copied from forti-cli; keep in sync) |
 | `release.toml`, `debian/`, `packaging/`, `.release/` | vl-release contract, Debian and Homebrew packaging, staged release docs (`.claude/context/release.md`) |

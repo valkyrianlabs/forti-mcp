@@ -1,5 +1,6 @@
 // End to end: spawn the built forti-mcp, pipe JSON-RPC lines in, read every line out. Config, state
-// and cache point at a fresh temporary directory, so no profile exists and no device is contacted.
+// and cache (and FORTI_HOME) point at a fresh temporary directory, so no profile exists, the real forti
+// home is never resolved and no device is contacted.
 
 #include <nlohmann/json.hpp>
 
@@ -57,7 +58,8 @@ namespace {
         if (!binary) throw std::runtime_error("FORTI_MCP_BINARY is not set");
         auto home = temp_home();
 
-        std::vector<std::string> env_strings = {"FORTI_CONFIG_DIR=" + (home / "config").string(),
+        std::vector<std::string> env_strings = {"FORTI_HOME=" + (home / "forti-home").string(),
+                                                "FORTI_CONFIG_DIR=" + (home / "config").string(),
                                                 "FORTI_STATE_DIR=" + (home / "state").string(),
                                                 "FORTI_CACHE_DIR=" + (home / "cache").string(),
                                                 "XDG_CONFIG_HOME=" + (home / "xdg-config").string(),
@@ -217,7 +219,8 @@ TEST(Stdio, VanishedClientIsAWriteErrorNotSigpipe) {
     const char* binary = std::getenv("FORTI_MCP_BINARY");
     ASSERT_NE(binary, nullptr);
     auto home = temp_home();
-    std::vector<std::string> env_strings = {"FORTI_CONFIG_DIR=" + (home / "config").string(),
+    std::vector<std::string> env_strings = {"FORTI_HOME=" + (home / "forti-home").string(),
+                                            "FORTI_CONFIG_DIR=" + (home / "config").string(),
                                             "FORTI_STATE_DIR=" + (home / "state").string(),
                                             "FORTI_CACHE_DIR=" + (home / "cache").string(), "HOME=" + home.string(),
                                             "PATH=/usr/bin:/bin"};
