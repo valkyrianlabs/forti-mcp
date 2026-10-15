@@ -8,8 +8,8 @@
 # Nothing here talks to a FortiGate (AGENTS.md). Linux steps run in the disposable CI container
 # (ci/run-ci, ci/Containerfile). Development builds take forti-cli and forti-api from the pinned wraps.
 
-# Parallelism: ninja's default (every core). An unoptimized engine shard needs ~1.1 GB, so all 8 fit
-# in the CI container's 12 GB (ci/run-ci) and the macOS runner's 7 GB at its core count.
+# Parallelism: every core the memory allows (ci/build-jobs: 2.5 GB per job, the engine shards'
+# GCC peak). ci/run-ci gives the container three quarters of the host's RAM.
 name: CI
 
 on:
@@ -68,7 +68,7 @@ jobs:
       - name: Build (warnings are errors, ASan/UBSan) and run every suite
         run: |
           meson setup build/ci -Dtests=enabled --buildtype=plain -Doptimization=0 -Ddebug=false -Dwerror=true -Db_sanitize=address,undefined -Db_lundef=false
-          meson compile -C build/ci
+          meson compile -C build/ci -j "$(ci/build-jobs)"
           UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 meson test -C build/ci --suite unit --suite e2e --suite integration --print-errorlogs
           if grep -q '"result": "SKIP"' build/ci/meson-logs/testlog.json; then
             echo "a test was skipped" >&2
@@ -107,7 +107,7 @@ jobs:
         run: |
           clang++ --version | head -1
           meson setup build -Dtests=enabled --buildtype=plain -Doptimization=0 -Ddebug=false -Dwerror=true
-          meson compile -C build
+          meson compile -C build -j "$(ci/build-jobs)"
           meson test -C build --suite unit --suite e2e --suite integration --print-errorlogs
           if grep -q '"result": "SKIP"' build/meson-logs/testlog.json; then
             echo "a test was skipped" >&2
