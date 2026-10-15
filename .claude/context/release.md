@@ -106,11 +106,12 @@ repository access).
 ## Build profile
 
 The same as forti-cli's (its `.claude/context/release.md` has the measurements): `buildtype=release`
-+ `optimization=s` (meson emits `-Oz` on clang, `-Os` on GCC), the engine's default 8 shards, no LTO;
+(-O3, tested as built), the engine's default 10 shards, no LTO;
 on ELF, non-debug builds add `-ffunction-sections -fdata-sections -Wl,--gc-sections` as *global*
 arguments, so the engine compiled in the subproject gets them too. Packaging: Debian swaps dpkg's
-`-O2` for `-Os` and sets `b_ndebug=true` (`debian/rules`; debhelper strips into `-dbgsym`);
-Homebrew passes `-Doptimization=s -Dstrip=true`.
+`-O2` for `-O3`, drops Ubuntu's default `-flto=auto -ffat-lto-objects` and `-g`, sets
+`b_ndebug=true` and ships no `-dbgsym` package (`debian/rules`); Homebrew passes
+`-Doptimization=3 -Dstrip=true`. Parallelism comes from `ci/build-jobs` (DEB_BUILD_OPTIONS=parallel).
 
 Package builds pass `-Dforti-cli:subproject_cli=false` (Debian) or `-Dtests=disabled` (Homebrew), so
 the subproject builds only the engine, never `forti`. The Debian build runs the unit and e2e suites;

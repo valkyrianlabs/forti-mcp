@@ -10,7 +10,7 @@ workspace ("Engine contract", "Operating modes", "MCP surface").
 ln -sfn "$(cd ../forti-cli && pwd)" subprojects/forti-cli   # engine co-development (else the wrap clones the pinned commit)
 ln -sfn "$(cd ../forti-api && pwd)" subprojects/forti-api
 meson setup build/dev -Dtests=enabled --buildtype=debugoptimized
-ninja -C build/dev -j4                       # each engine shard TU needs ~1.2 GB of RAM
+meson compile -C build/dev -j "$(ci/build-jobs)"   # every core memory allows (~2 GB per engine shard with GCC)
 meson test -C build/dev --print-errorlogs    # suites: unit (protocol, tools, budget), e2e (spawns the binary),
                                              # integration (forti-mcp + forti vs forti-cli's mock FortiOS; python3 + openssl)
 ```

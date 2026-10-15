@@ -21,9 +21,11 @@ Docker. The shared conventions are described in [payload-markdown's `ci/README.m
   (`CCACHE_DIR`, `CCACHE_MAXSIZE=8G`); Meson picks ccache up from the image. The engine's shard TUs
   are ~70% of a build, so a PR that changes neither the forti-cli nor the forti-api pin gets them from
   the cache. macOS uses `actions/cache` on `~/Library/Caches/ccache`, keyed by the two wraps.
-- The container is capped at 12 GB (`CI_MEMORY`). forti-mcp compiles forti-cli's engine, whose shard
-  TUs need about 2 GB each with GCC at -Os, so builds run with `-j 4` at most. Each CI job builds once;
-  the sanitizer build and the Homebrew formula install are separate jobs that run in parallel.
+- Memory and parallelism: `ci/run-ci` gives the container three quarters of the host's RAM
+  (`CI_MEMORY` overrides it), and `ci/build-jobs` runs every core that memory allows, budgeting 2.2 GB
+  per job (an engine shard TU with GCC 13: ~1.9 GB at -O0, ~2.3 GB at -O3, smaller with 10 shards).
+  Each CI job builds exactly once: pull requests build -O0 (Linux with ASan/UBSan) and run every suite
+  against it; release builds are -O3 and are tested as built (package.yml, release.yml).
 
 Build locally the way CI does (needs Podman):
 

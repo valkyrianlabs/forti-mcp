@@ -1,14 +1,15 @@
 # Pull-request validation, kept to a few minutes: exactly one unoptimized build per platform, which
 # every suite (unit, e2e, integration) runs against: Linux with ASan/UBSan, macOS plain. The script and
-# engine-pin checks run first in the Linux job: every Linux job runs on the self-hosted VPS. ccache keeps forti-cli's engine shards between runs (ci/run-ci on the
-# self-hosted runner, actions/cache on macOS).
+# engine-pin checks run first in the Linux job; every Linux job runs on the self-hosted VPS (pull
+# requests from forks: GitHub-hosted, so outside code never runs there). ccache keeps forti-cli's
+# engine shards between runs (ci/run-ci on the VPS, actions/cache on macOS).
 #
 # The optimized release build, the Debian rehearsal and the Homebrew formula live in package.yml:
-# they run when packaging can be affected, on main and on demand, not on every PR.
+# a manual rehearsal (workflow_dispatch) and, for a tag, release.yml. Never on pull requests.
 # Nothing here talks to a FortiGate (AGENTS.md). Linux steps run in the disposable CI container
 # (ci/run-ci, ci/Containerfile). Development builds take forti-cli and forti-api from the pinned wraps.
 
-# Parallelism: every core the memory allows (ci/build-jobs: 2.5 GB per job, the engine shards'
+# Parallelism: every core the memory allows (ci/build-jobs: 2.2 GB per job, the engine shards'
 # GCC peak). ci/run-ci gives the container three quarters of the host's RAM.
 name: CI
 
@@ -30,8 +31,6 @@ env:
   UBUNTU_IMAGE: docker.io/library/ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55
 
 jobs:
-  # Fast checks on a GitHub-hosted runner: the scripts, and the Homebrew formula's forti-cli resource
-  # against the wrap (same revision, live sha256).
   linux:
     name: Build and tests (Ubuntu 24.04, GCC 13, ASan/UBSan)
     runs-on: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && fromJSON('["ubuntu-latest"]') || fromJSON('["self-hosted","Linux","X64","ubuntu-latest-lts"]') }}
@@ -127,8 +126,3 @@ jobs:
           ci/smoke-test.sh build/src/forti-mcp
           ccache --show-stats | head -5
 
-  # Installs the formula (forti-api from valkyrianlabs/tap, the engine from its forti-cli resource)
-  # from a throwaway local tap and runs its test block and the smoke test (ephemeral checkout: the
-  # script prepares the release documents). Homebrew builds from source in its own sandbox, so this
-  # job is separate and runs in parallel. Skipped while no release docs are staged, since
-  # `vlr prepare` would refuse.

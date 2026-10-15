@@ -132,8 +132,8 @@ the integration suite also needs python3 and openssl. The engine comes from fort
 Meson subproject `subprojects/forti-cli`, pinned to one commit by `subprojects/forti-cli.wrap` and
 fetched at configure time. forti-api (header-only) comes from a system install (`libforti-api-dev`,
 the `forti-api` formula) when present, else from its wrap; `--skip-subprojects` keeps `meson install`
-from installing the SDK's headers in that case. Each engine translation unit needs 1–2 GB of RAM to
-compile, so keep the job count modest. Tests never contact a device.
+from installing the SDK's headers in that case. Each engine shard needs about 2 GB of RAM to compile
+with GCC (less with clang); `ci/build-jobs` picks a job count your memory allows. Tests never contact a device.
 
 The packages are built the same way, offline (`.claude/context/release.md`, "Engine source").
 

@@ -259,7 +259,8 @@ namespace forti::mcp {
                     {"description",
                      "Validate a configuration change and store it as a plan, without touching the device. Checks "
                      "every operation against the catalog and attribute types, reads the current objects, and "
-                     "returns plan_id, digest, per-attribute diff, the exact request bodies and the risk tier. "
+                     "returns the plan's id (pass it to forti_apply as plan_id), digest, per-attribute diff, the exact "
+                     "request bodies and the risk tier. "
                      "Operations run in order: create {resource, object}, update {resource, key, set, clear}, "
                      "delete {resource, key}, action {resource: monitor/..., body}. Use forti_discover what=resource "
                      "first to learn attribute names. Execute with forti_apply {plan_id}."},
