@@ -2,17 +2,10 @@ project('forti-mcp', 'cpp',
         version : files('VERSION'),
         meson_version : '>=1.3.0',
         license : 'MIT',
-        default_options : ['warning_level=3', 'cpp_std=c++23', 'buildtype=release', 'optimization=s',
-                           'b_ndebug=if-release', 'forti-api:tests=disabled'])
+        default_options : ['warning_level=3', 'cpp_std=c++23', 'buildtype=release', 'b_ndebug=if-release', 'forti-api:tests=disabled'])
 
-# Release profile, the same as forti-cli's (.claude/context/release.md, "Build profile"). Size-optimized:
-# the executable is mostly the engine's instantiated SDK code, which runs once per request against a
-# network API, so -O3 buys nothing measurable but nearly doubles the binary. Meson maps
-# optimization=s to -Oz on clang and -Os on GCC; `--buildtype=release` keeps it, and debug and
-# debugoptimized builds are unaffected.
-#
-# On ELF targets, non-debug builds also garbage-collect unreferenced sections. Global arguments (this is
-# always the main project), so the engine compiled in the forti-cli subproject gets them too.
+# Release builds (packages, the release workflow) are buildtype=release: -O3, tested as built.
+# Pull-request CI builds unoptimized (-O0) and tests that build (.github/workflows/ci.yml).
 cxx = meson.get_compiler('cpp')
 if not get_option('debug') and host_machine.system() != 'darwin' and cxx.has_link_argument('-Wl,--gc-sections')
     add_global_arguments('-ffunction-sections', '-fdata-sections', language : 'cpp')
