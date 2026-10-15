@@ -1,5 +1,23 @@
 # forti-mcp release notes
 
+<!-- vl-release:entry version=0.1.1 -->
+## 0.1.1 — Documentation in Payload Markdown
+
+_Released 2026-10-15_
+
+The forti-mcp documentation now uses Payload Markdown directives, so the published pages are easier
+to scan and follow. The content is the same; only its presentation changed:
+
+- **Installation** puts APT, Homebrew and the source build side by side in tabs.
+- **Connecting AI clients** walks through setup as numbered steps, with Claude Code, Codex and
+  manual registration in tabs.
+- **Safety and modes** calls out what guarded mode does not stop and the limits of recovery after a
+  management lockout.
+- The overview page maps features and next pages as cards, and the reference pages have a table of
+  contents and cleaner tables.
+
+The server itself is unchanged.
+
 <!-- vl-release:entry version=0.1.0 -->
 ## 0.1.0 — forti-mcp: FortiOS for AI clients
 

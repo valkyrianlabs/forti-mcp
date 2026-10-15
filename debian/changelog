@@ -1,3 +1,12 @@
+forti-mcp (0.1.1-1) unstable; urgency=medium
+
+  * Documentation: the docs package (docs/, docs set forti-mcp) is authored in
+    Payload Markdown, with directives for tabs (install methods, client
+    registration), steps, callouts (safety limits, recovery), cards, badges,
+    buttons and per-page tables of contents; documented behavior unchanged.
+
+ -- Cooper Larson <cooper@valkyrianlabs.com>  Thu, 15 Oct 2026 18:26:53 +0000
+
 forti-mcp (0.1.0-1) unstable; urgency=medium
 
   * Server
