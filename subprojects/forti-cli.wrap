@@ -4,7 +4,7 @@
 [wrap-git]
 url = https://github.com/valkyrianlabs/forti-cli.git
 # Pinned to a forti-cli commit until forti-cli has a release tag.
-revision = b9aac1d7c7d749fccf69d02df595a8016c316c0d
+revision = f9d559a48557754a2db27c356b90f2fe5fd302b0
 depth = 1
 
 [provide]
