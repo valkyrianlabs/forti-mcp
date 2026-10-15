@@ -11,7 +11,8 @@ ln -sfn "$(cd ../forti-cli && pwd)" subprojects/forti-cli   # engine co-developm
 ln -sfn "$(cd ../forti-api && pwd)" subprojects/forti-api
 meson setup build/dev -Dtests=enabled --buildtype=debugoptimized
 ninja -C build/dev -j4                       # each engine shard TU needs ~1.2 GB of RAM
-meson test -C build/dev --print-errorlogs    # suites: unit (protocol, tools, budget), e2e (spawns the binary)
+meson test -C build/dev --print-errorlogs    # suites: unit (protocol, tools, budget), e2e (spawns the binary),
+                                             # integration (forti-mcp + forti vs forti-cli's mock FortiOS; python3 + openssl)
 ```
 
 ## Layout
@@ -25,6 +26,7 @@ meson test -C build/dev --print-errorlogs    # suites: unit (protocol, tools, bu
 | `src/stdio.*`, `src/main.cpp` | The newline-delimited stdin/stdout loop and process setup |
 | `tests/unit/` | GoogleTest over `Server::handle` and the tools, engine on a scripted transport |
 | `tests/e2e/` | Spawns the built binary with temporary config/state/cache directories |
+| `tests/integration/` | Real forti-mcp over stdio and real forti against forti-cli's `tests/mock-fortios` (needs a forti-cli with `subproject_cli`) |
 | `tests/support/fake_transport.hpp` | Scripted `fortiapi::Transport` (copied from forti-cli; keep in sync) |
 
 ## Protocol
