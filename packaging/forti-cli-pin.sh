@@ -59,7 +59,7 @@ vendor() {
   [ "$head" = "$revision" ] || die "subprojects/forti-cli is at $head, the wrap pins $revision; remove it and re-run"
   # Untracked files are ignored: Meson keeps its own bookkeeping file (.meson-subproject-wrap-hash.txt) there.
   [ -z "$(git -C "$dir" status --porcelain --untracked-files=no)" ] || die "subprojects/forti-cli has local changes"
-  [ -f "$dir/meson.build" ] && [ -d "$dir/engine" ] || die "subprojects/forti-cli has no engine (meson.build, engine/)"
+  if [ ! -f "$dir/meson.build" ] || [ ! -d "$dir/engine" ]; then die "subprojects/forti-cli has no engine (meson.build, engine/)"; fi
   echo "forti-cli-pin: subprojects/forti-cli is forti-cli $revision"
 }
 
@@ -67,7 +67,7 @@ check() {
   local url sha
   url="$(resource_value url)"
   sha="$(resource_value sha256)"
-  [ -n "$url" ] && [ -n "$sha" ] || die "$formula has no resource \"forti-cli\" block with url and sha256"
+  if [ -z "$url" ] || [ -z "$sha" ]; then die "$formula has no resource \"forti-cli\" block with url and sha256"; fi
   [ "$url" = "$archive_url" ] || die "the formula's forti-cli resource is $url; the wrap pins $archive_url (run: packaging/forti-cli-pin.sh update)"
   if [ "${1:-}" = --download ]; then
     local actual
