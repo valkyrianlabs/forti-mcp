@@ -13,26 +13,75 @@ forti-mcp is an [MCP](https://modelcontextprotocol.io) server for FortiGate fire
 client (Claude Code, Codex or any other MCP client) discover, read and change FortiOS configuration
 through the **FortiOS REST API only**. It never runs SSH or CLI commands on the device.
 
+:::badges{align="left" gap="sm"}
+::badge[Release]{
+  type="github"
+  target="release"
+  repo="valkyrianlabs/forti-mcp"
+  href="https://github.com/valkyrianlabs/forti-mcp/releases"
+}
+::badge[CI]{
+  type="github"
+  target="workflow"
+  repo="valkyrianlabs/forti-mcp"
+  workflow="ci.yml"
+  href="https://github.com/valkyrianlabs/forti-mcp/actions/workflows/ci.yml"
+}
+::badge[License]{
+  type="github"
+  target="license"
+  repo="valkyrianlabs/forti-mcp"
+}
+:::
+
 ```bash
 claude mcp add --scope user forti -- forti-mcp     # or: forti install mcp
 ```
 
+:::buttons{align="left" stack="mobile" gap="md"}
+::button[Install]{href="/getting-started/installation" variant="primary"}
+::button[Connect a client]{href="/getting-started/connecting-clients" variant="secondary"}
+::button[GitHub]{href="https://github.com/valkyrianlabs/forti-mcp" variant="outline" newTab=true}
+:::
+
 ## What you get
 
-- **Native and on demand**: one executable that the AI client starts over stdio when it needs it and
-  that exits when the client closes it. No daemon, no network listener, no background service.
-- **Four tools**: `forti_discover` (profiles, device identity and mode, resource search, attributes),
-  `forti_read` (configuration and monitor data), `forti_plan` (validates a change and stores it as a
-  plan) and `forti_apply` (executes a stored plan, by id only).
-- **The operator decides what may change**: each device profile has a mode, `read-only` (the
-  default), `guarded` or `autonomous`, set in `forti configure`. Nothing an MCP client sends can
-  change a mode or approve a plan.
-- **Bounded results**: every tool result fits a byte budget (48 KiB of JSON by default) and is always
-  complete JSON; when a listing is cut, the result says where to continue.
-- **Secrets stay out of the conversation**: device secrets in read results come back as
-  `"<redacted>"`, and API tokens never appear in the client's configuration.
-- **Both protocol eras**: MCP `2026-07-28` (stateless) and the `initialize`-based `2025-11-25` and
-  `2025-06-18` revisions.
+:::cards{
+  columns="3"
+  cardTheme="muted"
+}
+
+:::card[Native and on demand]{eyebrow="Runtime"}
+One executable that the AI client starts over stdio when it needs it and that exits when the client
+closes it. No daemon, no network listener, no background service.
+:::
+
+:::card[Four tools]{eyebrow="Tools"}
+`forti_discover` (profiles, device identity and mode, resource search, attributes), `forti_read`
+(configuration and monitor data), `forti_plan` (validates a change and stores it as a plan) and
+`forti_apply` (executes a stored plan, by id only).
+:::
+
+:::card[The operator decides what may change]{eyebrow="Modes"}
+Each device profile has a mode, `read-only` (the default), `guarded` or `autonomous`, set in
+`forti configure`. Nothing an MCP client sends can change a mode or approve a plan.
+:::
+
+:::card[Bounded results]{eyebrow="Paging"}
+Every tool result fits a byte budget (48 KiB of JSON by default) and is always complete JSON; when a
+listing is cut, the result says where to continue.
+:::
+
+:::card[Secrets stay out of the conversation]{eyebrow="Security"}
+Device secrets in read results come back as `"<redacted>"`, and API tokens never appear in the
+client's configuration.
+:::
+
+:::card[Both protocol eras]{eyebrow="Protocol"}
+MCP `2026-07-28` (stateless) and the `initialize`-based `2025-11-25` and `2025-06-18` revisions.
+:::
+
+:::
 
 ## How it relates to forti-cli
 
@@ -42,16 +91,61 @@ the `forti` command-line tool, which is built on the
 catalog, validation, plans, modes, approvals, audit); forti-mcp maps MCP tool calls to engine
 requests and back. It never runs the `forti` executable, so the two packages install independently.
 
-You still want `forti` next to it. Device profiles and credentials are created with
-`forti configure`, guarded-mode approvals are given with `forti plan approve`, and `forti install mcp`
-registers this server with Claude Code and Codex. Both programs read the same configuration
-(`~/.config/forti`) and state, so a plan made in one can be inspected, approved or applied in the
-other.
+:::callout[Install forti as well]{variant="info"}
+You still want `forti` next to forti-mcp. Device profiles and credentials are created with
+`forti configure`, guarded-mode approvals are given with `forti plan approve`, and
+`forti install mcp` registers this server with Claude Code and Codex. Both programs read the same
+configuration (`~/.config/forti`) and state, so a plan made in one can be inspected, approved or
+applied in the other.
+:::
 
 ## Where to go next
 
-- [Installation](/getting-started/installation)
-- [Connecting AI clients](/getting-started/connecting-clients)
-- [The workflow: discover, read, plan, apply](/guides/workflow)
-- [Safety and modes](/guides/safety-and-modes)
-- [Tools reference](/reference/tools)
+:::cards{
+  columns="2"
+  cardTheme="glass"
+}
+
+:::card[Installation]{
+  href="/getting-started/installation"
+  eyebrow="Getting started"
+}
+Install forti-mcp from the APT repository or Homebrew, or build it from source.
+:::
+
+:::card[Connecting AI clients]{
+  href="/getting-started/connecting-clients"
+  eyebrow="Getting started"
+}
+Configure a device profile and register forti-mcp with Claude Code, Codex or another MCP client.
+:::
+
+:::card[The workflow: discover, read, plan, apply]{
+  href="/guides/workflow"
+  eyebrow="Guide"
+}
+How a model uses the four tools, learns a profile's mode and handles guarded approvals.
+:::
+
+:::card[Safety and modes]{
+  href="/guides/safety-and-modes"
+  eyebrow="Guide"
+}
+What each mode allows, what guarded mode does not stop, and the limits of recovery.
+:::
+
+:::card[Tools reference]{
+  href="/reference/tools"
+  eyebrow="Reference"
+}
+The four tools, their input schemas, results and annotations.
+:::
+
+:::card[Protocol]{
+  href="/reference/protocol"
+  eyebrow="Reference"
+}
+Supported MCP versions, methods, error codes and the stdio transport rules.
+:::
+
+:::

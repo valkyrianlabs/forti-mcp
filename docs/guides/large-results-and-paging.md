@@ -12,6 +12,9 @@ tags:
 A FortiGate can hold thousands of addresses or policies, and a single object can be large. Every
 tool result is therefore bounded twice: by an item count, and by a byte budget on its JSON.
 
+:::toc[On this page]{depth="2" theme="compact"}
+:::
+
 ## Item counts
 
 `forti_read` and `forti_discover` (`what: resources`) take `start` (default 0) and `count` (default
@@ -29,15 +32,18 @@ Every listing reports `meta.start` and `meta.returned`.
 
 Each tool result's envelope (`{"ok", "data", "meta"}` or `{"ok", "error"}`), serialized as compact
 JSON, must fit the budget: **49152 bytes (48 KiB) by default**, set with `--max-bytes` between 4096
-and 16777216 ([Command line](/reference/command-line)). The result is always complete, valid JSON:
-the server drops whole items, never bytes.
+and 16777216 ([Command line](/reference/command-line)).
+
+:::callout[Always complete JSON]{variant="info"}
+The result is always complete, valid JSON: the server drops whole items, never bytes.
+:::
 
 | The result | What is cut | What `meta` says |
 |---|---|---|
 | A listing (`data` is an array) | The longest prefix of items that fits is kept | `truncated: true`, `returned`, `next_start` = `start` + kept, `budget_bytes` |
 | One object (`data` is an object) | Its largest nested arrays are shortened, largest first | `truncated: true`, `trimmed` (JSON pointer to `{kept, total}`), `hint`, `budget_bytes` |
 | Still too large | `data` becomes `null` | `truncated: true`, `hint` with the result's size and the budget |
-| An error | `details` is replaced by `{"truncated": true}`, then the message is shortened (ending in `[truncated]`) | |
+| An error | `details` is replaced by `{"truncated": true}`, then the message is shortened (ending in `[truncated]`) | Nothing: no `meta` is added |
 
 When a single item at `start` is larger than the budget on its own, nothing can be returned and
 `meta.hint` says to select attributes with `fields` or read the item by `key`.
@@ -55,9 +61,14 @@ line is about twice the budget plus a fixed overhead.
 
 ## What the model does
 
-The tool descriptions and the server's instructions give the model one rule: **when
-`meta.truncated` is true or `meta.next_start` is present, call again with `start` set to
-`meta.next_start`, or narrow the request.** Narrowing usually works better than paging:
+The tool descriptions and the server's instructions give the model one rule:
+
+:::callout[The paging rule]{variant="tip"}
+When `meta.truncated` is true or `meta.next_start` is present, call again with `start` set to
+`meta.next_start`, or narrow the request.
+:::
+
+Narrowing usually works better than paging:
 
 - `fields`: only the attributes needed (`["name", "subnet"]`);
 - `filter`: only matching objects (`["type==ipmask", "name=@lan"]`; FortiOS operators `==`, `!=`,
@@ -65,8 +76,10 @@ The tool descriptions and the server's instructions give the model one rule: **w
 - `key`: one object;
 - a smaller `count`.
 
+:::callout[No paging inside one object]{variant="note"}
 An object whose nested arrays were trimmed (`meta.trimmed`) has no `next_start`, because there is no
 paging inside one object: narrow it with `fields` instead.
+:::
 
 ## Choosing a budget
 

@@ -9,15 +9,20 @@ tags:
 
 # Command line
 
+An MCP client starts `forti-mcp`, normally with no arguments, and talks JSON-RPC over stdio. The
+options only adjust policy for that process. Pass them in the client entry's arguments, e.g.
+`claude mcp add forti -- forti-mcp --read-only` ([Connecting AI clients](/getting-started/connecting-clients)).
+
+:::toc[On this page]{depth="2" theme="compact"}
+:::
+
+## Options
+
 ```text
 forti-mcp [--profile NAME] [--read-only] [--max-bytes N]
 forti-mcp --version
 forti-mcp --help
 ```
-
-An MCP client starts `forti-mcp`, normally with no arguments, and talks JSON-RPC over stdio. The
-options only adjust policy for that process. Pass them in the client entry's arguments, e.g.
-`claude mcp add forti -- forti-mcp --read-only` ([Connecting AI clients](/getting-started/connecting-clients)).
 
 | Option | Meaning |
 |---|---|
@@ -30,9 +35,11 @@ options only adjust policy for that process. Pass them in the client entry's arg
 Values can follow the option or be attached with `=` (`--max-bytes=65536`). Each option may be given
 once. `--profile` does not apply to `forti_apply`: a stored plan already names its profile.
 
+:::callout[--read-only limits the registration, not the profile]{variant="info"}
 `--read-only` does not change any profile's mode; it limits this registration. A client entry with
 `--read-only` cannot plan or apply even on an autonomous profile. Its effect is visible to the model:
 the server's instructions say that plan and apply are not available.
+:::
 
 ```text
 $ forti-mcp --version
@@ -62,6 +69,9 @@ and state as the `forti` CLI:
 | Cached live schemas | `~/.cache/forti` | `FORTI_CACHE_DIR`, else `XDG_CACHE_HOME/forti` |
 
 On macOS, API keys stored with `forti configure` live in the login Keychain (service `forti`); the
-directories are the same as on Linux. The directories never depend on the working directory, and
-the `FORTI_*_DIR` overrides must be absolute paths. forti refuses a `config.json` owned by another
+directories are the same as on Linux. The directories never depend on the working directory.
+
+:::callout[Path and ownership rules]{variant="warning"}
+The `FORTI_*_DIR` overrides must be absolute paths. forti refuses a `config.json` owned by another
 user or writable by group or others.
+:::

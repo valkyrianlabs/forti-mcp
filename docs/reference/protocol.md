@@ -12,6 +12,9 @@ tags:
 forti-mcp speaks JSON-RPC 2.0 over stdio, one message per line. It serves both MCP protocol eras in
 one process (MCP 2026-07-28, "Versioning and Compatibility"), so current and older clients both work.
 
+:::toc[On this page]{depth="2" theme="compact"}
+:::
+
 | Version | Era | How a client uses it |
 |---|---|---|
 | `2026-07-28` | Modern, stateless | Every request carries `_meta` `io.modelcontextprotocol/protocolVersion` and `io.modelcontextprotocol/clientCapabilities` |
@@ -72,8 +75,12 @@ request is judged by its own `_meta`.
 ## Errors
 
 Protocol errors are for messages the server cannot process: malformed JSON-RPC, unknown methods and
-unknown tools. Everything the model can fix, including invalid tool arguments and every device
-error, is a tool result with `isError: true` instead ([Tools](/reference/tools)).
+unknown tools.
+
+:::callout[Tool errors are not protocol errors]{variant="info"}
+Everything the model can fix, including invalid tool arguments and every device error, is a tool
+result with `isError: true` instead ([Tools](/reference/tools)).
+:::
 
 | Code | When |
 |---|---|
@@ -88,8 +95,10 @@ When the `id` cannot be read, the error response omits it (never `null`). The `-
 legacy method without a session, and to an `initialize` without a version, also lists the supported
 versions in `data.supported`.
 
+:::callout[With --read-only]{variant="note"}
 Calling `forti_plan` or `forti_apply` on a server started with `--read-only` is `-32602`
 "Unknown tool: forti_plan (forti-mcp runs with --read-only; plan and apply are disabled)".
+:::
 
 ## stdio
 

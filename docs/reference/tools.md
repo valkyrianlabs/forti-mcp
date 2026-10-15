@@ -22,6 +22,44 @@ others are refused with a protocol error ([Protocol](/reference/protocol)).
 Every input schema is strict (`additionalProperties: false`): an unknown argument is an error, and
 the message lists the allowed ones. The schemas mirror the engine's requests, which forti-cli shares.
 
+:::toc[On this page]{depth="2" theme="compact"}
+:::
+
+:::cards{
+  columns="2"
+  cardTheme="muted"
+}
+
+:::card[forti_discover]{
+  href="/reference/tools#forti-discover"
+  eyebrow="Start here"
+}
+Profiles, device identity and mode, resource search and resource details.
+:::
+
+:::card[forti_read]{
+  href="/reference/tools#forti-read"
+  eyebrow="Read"
+}
+Configuration or monitor data, bounded and paginated.
+:::
+
+:::card[forti_plan]{
+  href="/reference/tools#forti-plan"
+  eyebrow="Plan"
+}
+Validates a change and stores it as a plan, without touching the device.
+:::
+
+:::card[forti_apply]{
+  href="/reference/tools#forti-apply"
+  eyebrow="Apply"
+}
+Executes a stored plan, by `plan_id` only, as the profile's mode allows.
+:::
+
+:::
+
 ## Results
 
 Every tool returns the engine's envelope as `structuredContent`, and the same JSON as the first text
@@ -63,13 +101,18 @@ Results are bounded by the byte budget ([Large results and paging](/guides/large
 
 | Tool | `readOnlyHint` | `destructiveHint` | `idempotentHint` | `openWorldHint` |
 |---|---|---|---|---|
-| `forti_discover` | true | | | false |
-| `forti_read` | true | | | false |
-| `forti_plan` | true | | | false |
+| `forti_discover` | true | not set | not set | false |
+| `forti_read` | true | not set | not set | false |
+| `forti_plan` | true | not set | not set | false |
 | `forti_apply` | false | true | false | false |
 
 `forti_plan` is read-only for the device: it reads the current objects and writes only a local plan
 file. Every tool also has a `title`, repeated in its annotations.
+
+:::callout[Clients may run forti_plan without asking]{variant="note"}
+Some clients run read-only tools without asking. The [safety guide](/guides/safety-and-modes) covers
+what that means for planning.
+:::
 
 ## forti_discover
 
@@ -148,12 +191,21 @@ Each operation:
 `data` has the plan `id` (pass it to `forti_apply` as `plan_id`), `digest`, `kind`, `created_at`,
 `device` (profile, host, port, vdom, serial, version), `risk`, `summary`, `operations` (each with its
 `diff` and the exact request, `wire`, secrets redacted), `mode`, `notes`, `apply` (the equivalent
-`forti apply <id>` command) and, in guarded mode, `approve` (`forti plan approve <id>`). A value of
-`"<redacted>"` is refused (`validation`): a model cannot write back a secret it was never shown.
+`forti apply <id>` command) and, in guarded mode, `approve` (`forti plan approve <id>`).
+
+:::callout[Redacted values cannot be written]{variant="info"}
+A value of `"<redacted>"` is refused (`validation`): a model cannot write back a secret it was never
+shown.
+:::
 
 ## forti_apply
 
 Execute a stored plan on the live firewall.
+
+:::callout[Writes to the device]{variant="warning"}
+`forti_apply` is annotated destructive and not idempotent. Whether it runs depends on the profile's
+mode, not on the client ([Safety and modes](/guides/safety-and-modes)).
+:::
 
 | Field | Type | Description |
 |---|---|---|
@@ -162,10 +214,11 @@ Execute a stored plan on the live firewall.
 Nothing else is accepted: the operations come from the stored plan. The outcome follows the profile's
 mode ([Workflow](/guides/workflow)):
 
-- `read-only`: `policy_denied`;
-- `guarded`: `approval_required` until a person runs `forti plan approve <plan_id>`. forti-mcp adds
-  `details.approve_command` and a second text block asking the model to relay the command;
-- `autonomous`: executes now.
+| Mode | Outcome |
+|---|---|
+| `read-only` | `policy_denied` |
+| `guarded` | `approval_required` until a person runs `forti plan approve <plan_id>`. forti-mcp adds `details.approve_command` and a second text block asking the model to relay the command |
+| `autonomous` | Executes now |
 
 On success, `data` has `status: "applied"`, `plan_id`, `digest`, `operations` (per-operation
 status: `verified`, `applied_unverified`, `failed`, `outcome_unknown` or `not_attempted`), the

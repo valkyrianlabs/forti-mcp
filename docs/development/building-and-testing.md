@@ -9,6 +9,8 @@ tags:
 
 # Building and testing
 
+Build forti-mcp for development, run its test suites, and keep package builds on the pinned engine.
+
 ```bash
 meson setup build/dev -Dtests=enabled --buildtype=debugoptimized
 meson compile -C build/dev -j 4
@@ -18,6 +20,9 @@ meson test -C build/dev --print-errorlogs
 forti-mcp is C++23 built with Meson (1.3 or newer), tested with GCC 13 and newer and Apple Clang. It
 needs libcurl, GoogleTest for the tests, and python3 and openssl for the integration suite. No test
 contacts a FortiGate.
+
+:::toc[On this page]{depth="2" theme="compact"}
+:::
 
 ## The engine: a pinned subproject
 
@@ -37,9 +42,11 @@ ln -sfn "$(cd ../forti-cli && pwd)" subprojects/forti-cli
 ln -sfn "$(cd ../forti-api && pwd)" subprojects/forti-api
 ```
 
+:::callout[Keep the job count modest]{variant="warning"}
 The engine's resource catalog is compiled in shards, and each shard's translation unit needs 1 to
-2.5 GB of RAM depending on the compiler and optimization level, so keep the job count modest.
-`ci/build-jobs` prints a memory-aware job count for the current machine.
+2.5 GB of RAM depending on the compiler and optimization level. `ci/build-jobs` prints a
+memory-aware job count for the current machine.
+:::
 
 `forti-mcp --version` reports the engine revision it was built from: the actual `HEAD` of a Git
 checkout in `subprojects/forti-cli` (with `-dirty` for local changes), or the wrap's revision for a
@@ -47,10 +54,22 @@ source tree without Git metadata, as in package builds.
 
 ### Changing the pin
 
-1. Edit `revision` in `subprojects/forti-cli.wrap`.
-2. Run `packaging/forti-cli-pin.sh update`: it points the Homebrew formula's `forti-cli` resource
-   at the new revision and computes its sha256.
-3. Commit both files.
+:::steps
+
+#### Edit the wrap
+
+Edit `revision` in `subprojects/forti-cli.wrap`.
+
+#### Update the formula
+
+Run `packaging/forti-cli-pin.sh update`: it points the Homebrew formula's `forti-cli` resource at
+the new revision and computes its sha256.
+
+#### Commit both files
+
+Commit the wrap and the formula together.
+
+:::
 
 `packaging/forti-cli-pin.sh` keeps every package build on the wrap's revision:
 
@@ -80,8 +99,11 @@ meson test -C build/dev --suite integration -v
 
 The integration suite needs python3, openssl and a forti-cli subproject that ships its mock FortiOS
 and builds `forti`. With tests enabled, the top-level `meson.build` turns that on for the subproject
-(`subproject_cli`). Without them the suite is reported as not built, not failed. Tests never touch
-your real configuration, secret store or AI-client configuration.
+(`subproject_cli`). Without them the suite is reported as not built, not failed.
+
+:::callout[No live state in tests]{variant="info"}
+Tests never touch your real configuration, secret store or AI-client configuration.
+:::
 
 ## CI
 

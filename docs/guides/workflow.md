@@ -22,6 +22,9 @@ forti_discover  ->  forti_read  ->  forti_plan  ->  forti_apply {plan_id}
 
 The examples below show tool arguments. [Tools](/reference/tools) has every field.
 
+:::toc[On this page]{depth="3" theme="compact"}
+:::
+
 ## 1. Discover
 
 ```json
@@ -41,7 +44,9 @@ The examples below show tool arguments. [Tools](/reference/tools) has every fiel
   gives full detail for selected attributes, and `live: true` adds the device's own help text,
   options and ranges.
 
+:::callout[Discovery is mostly offline]{variant="note"}
 Everything except `capabilities` and `live: true` is answered locally, without contacting the device.
+:::
 
 ## 2. Read
 
@@ -78,8 +83,14 @@ device. The result (`data`) carries:
 | `mode`, `notes` | The profile's mode and what apply will do in it |
 | `approve` | Guarded mode only: `forti plan approve <id>` |
 
-Operations run in order at apply time: `create {resource, object}`, `update {resource, key, set,
-clear}`, `delete {resource, key}`, `action {resource: monitor/..., body}`.
+Operations run in order at apply time:
+
+| `op` | Arguments |
+|---|---|
+| `create` | `resource`, `object` |
+| `update` | `resource`, `key`, `set`, `clear` |
+| `delete` | `resource`, `key` |
+| `action` | `resource` (a `monitor/...` path), `body` |
 
 ## 4. Apply
 
@@ -122,17 +133,33 @@ Approval required (guarded mode). Ask the user to run this in their own terminal
   forti plan approve 20261015-104512-a1b2c3
 ```
 
-The model relays the command. You run it in your terminal: `forti plan approve` shows the plan (diff,
-request bodies, risk) and asks for confirmation. Then the model calls `forti_apply` again with the
-same `plan_id`, and it executes. An approval:
+:::steps
+
+#### The model relays the command
+
+The model shows you the exact `forti plan approve <id>` command.
+
+#### You approve in your own terminal
+
+`forti plan approve` shows the plan (diff, request bodies, risk) and asks for confirmation.
+
+#### The model applies again
+
+The model calls `forti_apply` again with the same `plan_id`, and it executes.
+
+:::
+
+An approval:
 
 - belongs to that plan's digest: a changed or tampered plan is not approved;
 - expires after 24 hours (`reason: expired`);
 - is used once (`reason: used`): applying again needs a new plan and a new approval.
 
+:::callout[The approval is a person's act]{variant="warning"}
 forti-mcp has no approve tool and never writes approvals. In guarded mode the approval is always a
 person's act, outside MCP. Read what that does and does not guarantee in
 [Safety and modes](/guides/safety-and-modes#what-guarded-mode-does-not-stop).
+:::
 
 ### Autonomous mode and the safeguards of every apply
 
@@ -166,5 +193,8 @@ A successful result (`data.status: "applied"`) lists every operation's status (`
 | `management_connectivity_lost` | The probe after a critical change failed. The remaining operations were not attempted; `details` has the rollback plan, the backup and the before-state |
 | `policy_denied` | The profile is read-only, the plan was already applied, or a critical plan's backup failed |
 
+:::callout[Rolling back]{variant="tip"}
 The rollback plan is an ordinary stored plan. Apply it like any other (`forti_apply` or
-`forti apply <id>`), under the same mode rules.
+`forti apply <id>`), under the same mode rules. It needs a working management path; see
+[Recovery aids are not guaranteed recovery](/guides/safety-and-modes#recovery-aids-are-not-guaranteed-recovery).
+:::
