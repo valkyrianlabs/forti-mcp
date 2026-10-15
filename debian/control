@@ -1,0 +1,38 @@
+Source: forti-mcp
+Section: admin
+Priority: optional
+Maintainer: Cooper Larson <cooper@valkyrianlabs.com>
+Build-Depends:
+ debhelper-compat (= 13),
+ g++ (>= 4:13),
+ libcurl4-openssl-dev | libcurl-dev,
+ libforti-api-dev (>= 1.0.1),
+ libgtest-dev <!nocheck>,
+ meson (>= 1.3.0),
+ ninja-build,
+ pkgconf,
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
+Homepage: https://github.com/valkyrianlabs/forti-mcp
+
+Package: forti-mcp
+Architecture: any
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends},
+Description: FortiOS MCP server for AI clients
+ forti-mcp lets an AI client (Claude Code, Codex or any other MCP client)
+ discover, read and change FortiGate configuration through the FortiOS REST
+ API (v2), and never through SSH or CLI commands. The client starts it on
+ demand and talks to it over stdio (JSON-RPC 2.0); there is no daemon and no
+ network listener.
+ .
+ Changes are planned first: a plan validates the operations and records the
+ field diff and risk tier. Whether a plan may be applied is the device
+ profile's mode (read-only, guarded or autonomous), which the operator sets
+ and the server cannot change.
+ .
+ Device profiles and credentials are managed with `forti configure` from the
+ forti-cli package, which also registers the server with AI clients
+ (`forti install mcp`). forti-mcp itself needs neither: the command engine it
+ shares with forti is compiled in.

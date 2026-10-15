@@ -255,7 +255,7 @@ TEST_F(Fixture, ToolsListCursorIsInvalid) {
 // ---- read-only mode ----
 
 TEST_F(Fixture, ReadOnlyModeHidesAndRefusesPlanAndApply) {
-    auto server = make({.read_only = true});
+    auto server = make({.default_profile = {}, .read_only = true});
     const json& tools = server->tools().definitions();
     ASSERT_EQ(tools.size(), 2u);
     EXPECT_EQ(tools[0]["name"], "forti_discover");

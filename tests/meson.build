@@ -2,8 +2,13 @@
 # fortiapi::Transport (support/fake_transport.hpp); the end-to-end test spawns the built binary with
 # temporary config, state and cache directories.
 gtest_dep = dependency('gtest', main : true, required : get_option('tests'))
+
+# Sanitizer builds leave the engine shards uninstrumented (forti-cli's engine/meson.build). libc++
+# annotates std::vector for ASan, so a vector filled by an uninstrumented shard and read by instrumented
+# code is reported as a "container-overflow" that is not one. Every other ASan check stays on.
+asan_options = get_option('b_sanitize').contains('address') ? 'detect_container_overflow=0' : ''
 if gtest_dep.found()
-    test('unit', executable('unitTests',
+    unit_tests = executable('unitTests',
                             'unit/test_protocol.cpp',
                             'unit/test_tools.cpp',
                             'unit/test_budget.cpp',
@@ -11,13 +16,19 @@ if gtest_dep.found()
                             'unit/test_fuzz.cpp',
                             include_directories : include_directories('support'),
                             dependencies : [mcp_core_dep, gtest_dep],
-                            implicit_include_directories : false),
+                            implicit_include_directories : false)
+    test('unit', unit_tests,
+         env : asan_options != '' ? {'ASAN_OPTIONS' : asan_options} : {},
          suite : 'unit')
+    # The same binary's fuzz tests at full size (minutes under sanitizers): main and packaging only.
+    test('fuzz', unit_tests, args : ['--gtest_filter=Fuzz.*'],
+         env : {'FORTI_FUZZ' : 'full'} + (asan_options != '' ? {'ASAN_OPTIONS' : asan_options} : {}),
+         suite : 'fuzz', timeout : 900)
 
     test('e2e', executable('e2eTests', 'e2e/test_stdio.cpp',
                            dependencies : [forti_engine.partial_dependency(includes : true), gtest_dep],
                            implicit_include_directories : false),
-         env : {'FORTI_MCP_BINARY' : forti_mcp_exe.full_path()},
+         env : {'FORTI_MCP_BINARY' : forti_mcp_exe.full_path()} + (asan_options != '' ? {'ASAN_OPTIONS' : asan_options} : {}),
          depends : forti_mcp_exe,
          suite : 'e2e')
 endif
@@ -27,18 +38,21 @@ endif
 # The mock and its harness come from the forti-cli subproject's source tree.
 python3 = find_program('python3', required : false)
 # A forti-cli that ships mock-fortios also has subproject_cli, which the top-level meson.build turns on
-# whenever tests are not disabled.
+# whenever tests are not disabled. Package builds turn it off again (-Dforti-cli:subproject_cli=false,
+# debian/rules): they run only the unit and e2e suites and need no `forti`.
 mock_fortios_dir = forti_cli.get_variable('mock_fortios_dir', '')
-if python3.found() and mock_fortios_dir != '' and not get_option('tests').disabled()
-    forti_cli_exe = forti_cli.get_variable('forti_exe')
+forti_cli_exes = [] + forti_cli.get_variable('forti_exe', [])
+if python3.found() and mock_fortios_dir != '' and forti_cli_exes.length() == 1 and not get_option('tests').disabled()
+    forti_cli_exe = forti_cli_exes[0]
     test('mcp-e2e', python3, args : [files('integration/test_mcp.py')],
          env : {'FORTI_MCP_BINARY' : forti_mcp_exe.full_path(), 'FORTI_BINARY' : forti_cli_exe.full_path(),
-                'FORTI_MOCK_DIR' : mock_fortios_dir, 'PYTHONDONTWRITEBYTECODE' : '1'},
+                'FORTI_MOCK_DIR' : mock_fortios_dir, 'PYTHONDONTWRITEBYTECODE' : '1'}
+               + (asan_options != '' ? {'ASAN_OPTIONS' : asan_options} : {}),
          depends : [forti_mcp_exe, forti_cli_exe], suite : 'integration', timeout : 300)
     test('no-second-http-stack', python3,
          args : [mock_fortios_dir / '..' / 'integration' / 'scan_http.py', '--root', meson.project_source_root() / 'src',
                  '--binary', forti_mcp_exe.full_path()],
          depends : forti_mcp_exe, suite : 'integration')
 else
-    message('integration suite not built (needs python3 and a forti-cli subproject that ships tests/mock-fortios)')
+    message('integration suite not built (needs python3 and a forti-cli subproject that ships tests/mock-fortios and builds forti)')
 endif

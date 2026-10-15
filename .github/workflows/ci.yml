@@ -1,0 +1,123 @@
+# Pull-request validation, kept to a few minutes: exactly one unoptimized build per platform, which
+# every suite (unit, e2e, integration) runs against: Linux with ASan/UBSan, macOS plain. Plus a
+# seconds-long lint job. ccache keeps forti-cli's engine shards between runs (ci/run-ci on the
+# self-hosted runner, actions/cache on macOS).
+#
+# The optimized release build, the Debian rehearsal and the Homebrew formula live in package.yml:
+# they run when packaging can be affected, on main and on demand, not on every PR.
+# Nothing here talks to a FortiGate (AGENTS.md). Linux steps run in the disposable CI container
+# (ci/run-ci, ci/Containerfile). Development builds take forti-cli and forti-api from the pinned wraps.
+
+# Parallelism: every core the memory allows (ci/build-jobs: 2.5 GB per job, the engine shards'
+# GCC peak). ci/run-ci gives the container three quarters of the host's RAM.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  VL_RELEASE_TAG: v0.5.0
+  # Stock image for clean-install smoke tests (same digest as ci/Containerfile's base).
+  UBUNTU_IMAGE: docker.io/library/ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55
+
+jobs:
+  # Fast checks on a GitHub-hosted runner: the scripts, and the Homebrew formula's forti-cli resource
+  # against the wrap (same revision, live sha256).
+  lint:
+    name: Scripts and engine pin
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: shellcheck
+        run: shellcheck ci/smoke-test.sh packaging/forti-cli-pin.sh .github/scripts/homebrew-local-install.sh
+
+      - name: The formula's forti-cli resource is the wrap's revision
+        run: bash packaging/forti-cli-pin.sh check --download
+
+  linux:
+    name: Build and tests (Ubuntu 24.04, GCC 13, ASan/UBSan)
+    runs-on: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && fromJSON('["ubuntu-latest"]') || fromJSON('["self-hosted","Linux","X64","ubuntu-latest-lts"]') }}
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash ./ci/run-ci bash -euo pipefail {0}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Toolchain
+        run: |
+          g++ --version | head -1
+          meson --version
+          ccache --version | head -1
+          openssl version
+
+      # One build, every suite: unoptimized (mock tests do not need optimization; it only slows the
+      # engine shards), warnings are errors (the engine's included), and ASan/UBSan on every
+      # hand-written TU (the engine's generated shards stay uninstrumented). The integration suite
+      # reports SKIP without openssl or forti's mock; here it must run.
+      - name: Build (warnings are errors, ASan/UBSan) and run every suite
+        run: |
+          meson setup build/ci -Dtests=enabled --buildtype=plain -Doptimization=0 -Ddebug=false -Dwerror=true -Db_sanitize=address,undefined -Db_lundef=false
+          meson compile -C build/ci -j "$(ci/build-jobs)"
+          UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 meson test -C build/ci --suite unit --suite e2e --suite integration --print-errorlogs
+          if grep -q '"result": "SKIP"' build/ci/meson-logs/testlog.json; then
+            echo "a test was skipped" >&2
+            exit 1
+          fi
+          ci/smoke-test.sh build/ci/src/forti-mcp
+
+      # Full-size fuzz tests (minutes under sanitizers) on main only; PRs run the quick slice in `unit`.
+      - name: Full-size fuzz tests
+        if: github.event_name == 'push'
+        run: UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 meson test -C build/ci --suite fuzz --print-errorlogs
+          ccache --show-stats | head -5
+
+  macos:
+    name: Build and tests (macOS, Apple clang)
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Install Homebrew packages
+        run: brew install meson ninja googletest ccache
+
+      # Keyed by the engine and SDK pins: a PR that changes neither restores every engine shard from
+      # the cache.
+      - name: Compiler cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/Library/Caches/ccache
+          key: ccache-macos-${{ hashFiles('subprojects/forti-cli.wrap', 'subprojects/forti-api.wrap') }}-${{ github.sha }}
+          restore-keys: |
+            ccache-macos-${{ hashFiles('subprojects/forti-cli.wrap', 'subprojects/forti-api.wrap') }}-
+            ccache-macos-
+
+      - name: Build and run the tests
+        run: |
+          clang++ --version | head -1
+          meson setup build -Dtests=enabled --buildtype=plain -Doptimization=0 -Ddebug=false -Dwerror=true
+          meson compile -C build -j "$(ci/build-jobs)"
+          meson test -C build --suite unit --suite e2e --suite integration --print-errorlogs
+          if grep -q '"result": "SKIP"' build/meson-logs/testlog.json; then
+            echo "a test was skipped" >&2
+            exit 1
+          fi
+          ci/smoke-test.sh build/src/forti-mcp
+          ccache --show-stats | head -5
+
+  # Installs the formula (forti-api from valkyrianlabs/tap, the engine from its forti-cli resource)
+  # from a throwaway local tap and runs its test block and the smoke test (ephemeral checkout: the
+  # script prepares the release documents). Homebrew builds from source in its own sandbox, so this
+  # job is separate and runs in parallel. Skipped while no release docs are staged, since
+  # `vlr prepare` would refuse.

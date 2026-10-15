@@ -11,6 +11,9 @@
 
 #include <gtest/gtest.h>
 
+#include <cstdlib>
+#include <string_view>
+
 #include <random>
 
 using json = nlohmann::json;
@@ -20,6 +23,13 @@ using forti::mcp::ServerOptions;
 namespace {
 
     const char* meta = R"("_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{}})";
+
+    // Quick by default (pull-request CI); FORTI_FUZZ=full runs ten times the rounds and data (the
+    // `fuzz` suite, run on main and for packaging).
+    int scale() {
+        const char* mode = std::getenv("FORTI_FUZZ");
+        return mode && std::string_view(mode) == "full" ? 10 : 1;
+    }
 
     std::vector<std::string> seeds() {
         std::string m = meta;
@@ -132,7 +142,7 @@ namespace {
 TEST_F(Fuzz, MutatedMessagesAlwaysGetAWellFormedAnswer) {
     std::mt19937 rng(20261014);
     auto inputs = seeds();
-    for (int round = 0; round < 4000; ++round) {
+    for (int round = 0; round < 400 * scale(); ++round) {
         Server server(engine, ServerOptions{});
         // Sometimes start a legacy session so tools/call is reachable without _meta.
         if (round % 3 == 0) (void) server.handle_line(inputs[0]);
@@ -149,7 +159,7 @@ TEST_F(Fuzz, RandomJsonValuesAlwaysGetAWellFormedAnswer) {
     std::mt19937 rng(7);
     Server server(engine, ServerOptions{});
     (void) server.handle_line(seeds()[0]);
-    for (int round = 0; round < 4000; ++round) {
+    for (int round = 0; round < 400 * scale(); ++round) {
         json message = random_json(rng, 0);
         if (round % 2 == 0 && message.is_object()) message["jsonrpc"] = "2.0";
         std::optional<json> response = server.handle(message);
@@ -196,7 +206,7 @@ TEST_F(Fuzz, HugeAndDeepDeviceRepliesStayWithinTheBudget) {
 
     // 20 000 objects with long comments: trimmed by whole items, still complete JSON.
     json rows = json::array();
-    for (int i = 0; i < 20000; ++i) rows.push_back({{"name", std::format("obj{}", i)}, {"comment", std::string(200, 'c')}});
+    for (int i = 0; i < 2000 * scale(); ++i) rows.push_back({{"name", std::format("obj{}", i)}, {"comment", std::string(200, 'c')}});
     transport->reply(200, forti::fake::envelope(rows));
     json response = call({{"resource", "monitor/firewall/session"}, {"count", 1000}});
     std::string text = response["result"]["content"][0]["text"];
