@@ -164,9 +164,17 @@ TEST_F(Tools, DefaultProfileIsInjected) {
 
 // ---- truncation ----
 
+// Options with only a byte budget. (Not a designated initializer that skips default_profile: GCC's
+// -Wmissing-field-initializers flags that.)
+static ServerOptions budget(std::size_t max_bytes) {
+    ServerOptions options;
+    options.max_bytes = max_bytes;
+    return options;
+}
+
 TEST_F(Tools, ReadIsHeldToTheByteBudget) {
     transport->reply(200, forti::fake::envelope(addresses(200, 100)));
-    json result = call("forti_read", {{"resource", "firewall/address"}, {"count", 200}}, {.max_bytes = 4096});
+    json result = call("forti_read", {{"resource", "firewall/address"}, {"count", 200}}, budget(4096));
     json env = envelope(result);
     ASSERT_TRUE(env["ok"]);
     EXPECT_LE(result["content"][0]["text"].get<std::string>().size(), 4096u);
@@ -182,12 +190,12 @@ TEST_F(Tools, ReadIsHeldToTheByteBudget) {
 
     // The next page starts where the budget stopped.
     transport->reply(200, forti::fake::envelope(addresses(3)));
-    call("forti_read", {{"resource", "firewall/address"}, {"start", returned}}, {.max_bytes = 4096});
+    call("forti_read", {{"resource", "firewall/address"}, {"start", returned}}, budget(4096));
     EXPECT_NE(transport->requests.back().url.find(std::format("start={}", returned)), std::string::npos);
 }
 
 TEST_F(Tools, DiscoverListingIsHeldToTheByteBudget) {
-    json result = call("forti_discover", {{"what", "resources"}, {"count", 1000}}, {.max_bytes = 4096});
+    json result = call("forti_discover", {{"what", "resources"}, {"count", 1000}}, budget(4096));
     json env = envelope(result);
     EXPECT_LE(result["content"][0]["text"].get<std::string>().size(), 4096u);
     EXPECT_EQ(env["meta"]["truncated"], true);
