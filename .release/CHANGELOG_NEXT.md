@@ -7,6 +7,9 @@ Format: one "- " bullet per change (concise, technical). Indent continuation lin
 Optional "## Section" headings group bullets; if used, every bullet must be under one.
 One level of nested "  - " detail bullets is allowed. Consolidate; don't paste commit logs.
 -->
+- Depend on valkyrianlabs-archive-keyring so renewed APT signing-key metadata reaches existing installs
+  through upgrades (it owns /usr/share/keyrings/valkyrianlabs.gpg and links an unmodified
+  /etc/apt/keyrings/valkyrianlabs.gpg to it).
 - Engine: forti-cli v0.4.1 (c9cf77c): approvals bound to the digest shown, audit events with actor,
   summary and approver, `forti approve` in approval details.
 - forti_apply takes operations (plan and apply in one call) or plan_id; the result carries the plan

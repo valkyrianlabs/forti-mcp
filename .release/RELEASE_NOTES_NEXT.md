@@ -36,3 +36,5 @@ the agent can report exactly what changed.
   who did what.
 - Startup is back to about 6 ms.
 - Homebrew pours a bottle on Apple silicon Macs running macOS 26 or later.
+- APT packages depend on `valkyrianlabs-archive-keyring`, which keeps the repository signing key
+  current through normal upgrades.
