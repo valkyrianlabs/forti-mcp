@@ -18,12 +18,11 @@ Docker. The shared conventions are described in [payload-markdown's `ci/README.m
   Clean-install checks of the `.deb` use a stock image instead:
   `./ci/run-ci --image "$UBUNTU_IMAGE" --root bash -c 'apt-get install -y ./release/…'`.
 - ccache: `ci/run-ci` keeps `$cache/ccache` on the runner and mounts it at `/cache/ccache`
-  (`CCACHE_DIR`, `CCACHE_MAXSIZE=8G`); Meson picks ccache up from the image. The engine's shard TUs
-  are ~70% of a build, so a PR that changes neither the forti-cli nor the forti-api pin gets them from
-  the cache. macOS uses `actions/cache` on `~/Library/Caches/ccache`, keyed by the two wraps.
-- Memory and parallelism: `ci/run-ci` gives the container three quarters of the host's RAM
-  (`CI_MEMORY` overrides it), and `ci/build-jobs` runs every core that memory allows, budgeting 2.2 GB
-  per job (an engine shard TU with GCC 13: ~1.9 GB at -O0, ~2.3 GB at -O3, smaller with 10 shards).
+  (`CCACHE_DIR`, `CCACHE_MAXSIZE=8G`); Meson picks ccache up from the image, so a PR that changes
+  neither the forti-cli nor the forti-api pin gets the engine from the cache. macOS uses `actions/cache` on `~/Library/Caches/ccache`, keyed by the two wraps.
+- Memory and parallelism: `ci/run-ci` sizes the container (`CI_MEMORY` overrides it), and
+  `ci/build-jobs` runs every core that memory allows, budgeting 1.2 GB per job (the largest TU with
+  GCC 13 at -O3).
   Each CI job builds exactly once: pull requests build -O0 (Linux with ASan/UBSan) and run every suite
   against it; release builds are -O3 and are tested as built (package.yml, release.yml).
 

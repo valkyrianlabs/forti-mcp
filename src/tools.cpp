@@ -188,7 +188,8 @@ namespace forti::mcp {
                         {"count", count_property(engine::default_page)},
                         {"resource", {{"type", "string"}, {"minLength", 1}, {"maxLength", 256},
                                       {"description", "what=resource: e.g. firewall/address, firewall.service/custom, "
-                                                      "system/interface, monitor/system/status."}}},
+                                                      "system/interface, monitor/system/status, or FortiOS CLI words "
+                                                      "(\"firewall address\")."}}},
                         {"fields", strings("what=resource: attributes to describe in full (nested children, and live "
                                            "help/options with live=true).", 200)},
                         {"live", {{"type", "boolean"}, {"description", "what=resource: merge the device's live schema."}}},
@@ -220,8 +221,10 @@ namespace forti::mcp {
                       {"required", {"resource"}},
                       {"properties",
                        {{"resource", {{"type", "string"}, {"minLength", 1}, {"maxLength", 256},
-                                      {"description", "Resource path from forti_discover: firewall/address, "
-                                                      "firewall/policy, system/global, monitor/system/status, ..."}}},
+                                      {"description", "Resource path from forti_discover (firewall/address, firewall/policy, "
+                                                      "system/global, monitor/system/status), FortiOS CLI words (\"firewall "
+                                                      "address\") or a last word only one resource has (\"address\"). A "
+                                                      "table object can be named by its path: firewall/address/web."}}},
                         {"key", {{"type", {"string", "integer"}},
                                  {"description", "Table object key (its name, or the number for policyid-style keys)."}}},
                         {"filter", strings("FortiOS filter clauses, ANDed: [\"type==ipmask\", \"name=@lan\"].", 32)},

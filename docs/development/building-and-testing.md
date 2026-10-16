@@ -42,10 +42,10 @@ ln -sfn "$(cd ../forti-cli && pwd)" subprojects/forti-cli
 ln -sfn "$(cd ../forti-api && pwd)" subprojects/forti-api
 ```
 
-:::callout[Keep the job count modest]{variant="warning"}
-The engine's resource catalog is compiled in shards, and each shard's translation unit needs 1 to
-2.5 GB of RAM depending on the compiler and optimization level. `ci/build-jobs` prints a
-memory-aware job count for the current machine.
+:::callout[Fast to build]{variant="info"}
+The engine's resource catalog comes from forti-api's runtime schema (generated tables, forti-api 1.1
+and later), so no translation unit needs more than about 1.2 GB (GCC) and every core can compile at
+once. `ci/build-jobs` prints a memory-aware job count for the current machine.
 :::
 
 `forti-mcp --version` reports the engine revision it was built from: the actual `HEAD` of a Git
@@ -117,8 +117,8 @@ exactly once, unoptimized (`-O0`, warnings as errors), and runs every suite agai
   skipped test fails the job. Pushes to `main` also run the full-size fuzz suite.
 - **macOS** (Apple Clang): the same build without sanitizers, the same suites and the smoke test.
 
-ccache keeps the engine's shards between runs, so a change that touches neither the forti-cli nor
-the forti-api pin rebuilds only forti-mcp's own files.
+ccache keeps the engine between runs, so a change that touches neither the forti-cli nor the
+forti-api pin rebuilds only forti-mcp's own files.
 
 The release build is a different configuration and is tested as built. `meson.build` defaults to
 `buildtype=release` (`-O3`); the Debian package uses `-O3` in place of dpkg's `-O2` with NDEBUG and
