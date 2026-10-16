@@ -87,10 +87,10 @@ Package builds then never fetch anything themselves: Debian configures with
 
 | Suite | What it runs |
 |---|---|
-| `unit` | GoogleTest over the protocol core (`Server::handle`), the tools, the byte budget and the options, with the engine on a scripted transport (`tests/support/fake_transport.hpp`); includes a quick slice of the fuzz tests |
+| `unit` | GoogleTest over the protocol core (`Server::handle`), the tools, in-chat approval in both protocol eras, the stdio transport over pipes, the byte budget and the options, with the engine on a scripted transport (`tests/support/fake_transport.hpp`) and a temporary state directory; includes a quick slice of the fuzz tests |
 | `fuzz` | The same binary's fuzz tests at full size (`FORTI_FUZZ=full`); minutes under sanitizers |
 | `e2e` | Spawns the built `forti-mcp` with temporary config, state and cache directories and talks to it over stdio |
-| `integration` | Real `forti-mcp` and real `forti` against forti-cli's stateful mock FortiOS over loopback TLS: both protocol eras, `--read-only`, the byte budget, plan in MCP and approve in the CLI, drift, rollback, critical backups. Also the no-second-HTTP-stack scan of the source and binary |
+| `integration` | Real `forti-mcp` and real `forti` against forti-cli's stateful mock FortiOS over loopback TLS: both protocol eras, `--read-only`, the byte budget, one-call apply, in-chat approval (legacy and 2026-07-28), plan in MCP and approve in the CLI, drift, rollback, critical backups. Also the no-second-HTTP-stack scan of the source and binary |
 
 ```bash
 meson test -C build/dev --suite unit --suite e2e

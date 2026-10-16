@@ -33,7 +33,8 @@ forti-mcp --help
 | `--help`, `-h` | Print the usage, then exit |
 
 Values can follow the option or be attached with `=` (`--max-bytes=65536`). Each option may be given
-once. `--profile` does not apply to `forti_apply`: a stored plan already names its profile.
+once. `--profile` applies to `forti_apply` with `operations`, not with a `plan_id`: a stored plan
+already names its profile.
 
 :::callout[--read-only limits the registration, not the profile]{variant="info"}
 `--read-only` does not change any profile's mode; it limits this registration. A client entry with

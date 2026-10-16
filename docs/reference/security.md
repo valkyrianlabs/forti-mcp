@@ -134,7 +134,8 @@ vector, no shell and stdin from `/dev/null`.
 
 ## What the server can never do
 
-- approve a plan, or apply one in a read-only profile;
+- approve a plan on the model's say-so (it records an approval only from a person's answer to its
+  in-chat prompt), or apply one in a read-only profile;
 - change a profile's mode, or any other part of forti's configuration;
 - reveal a redacted secret;
 - send anything but FortiOS REST API requests to the device.

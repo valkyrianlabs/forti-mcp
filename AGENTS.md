@@ -20,10 +20,11 @@ meson test -C build/dev --print-errorlogs    # suites: unit (protocol, tools, bu
 | Path | What |
 |---|---|
 | `src/protocol.*` | JSON-RPC 2.0 / MCP core, no I/O: `Server::handle(json)`, `handle_line(string)`. Both protocol eras |
-| `src/tools.*` | The four tools (schemas, descriptions, annotations), argument validation, engine calls |
+| `src/tools.*` | The four tools (schemas, descriptions, annotations), argument validation, engine calls, the forti_apply approval flow |
+| `src/approval.*`, `src/crypto.*` | In-chat approval: the proposal text, ElicitResult reading, the HMAC-sealed MRTR `requestState` (self-contained SHA-256/HMAC) |
 | `src/budget.*` | The per-result byte budget: trims whole items, never bytes, and reports it in `meta` |
 | `src/options.*` | Command-line flags |
-| `src/stdio.*`, `src/main.cpp` | The newline-delimited stdin/stdout loop and process setup |
+| `src/stdio.*`, `src/main.cpp` | The newline-delimited stdin/stdout loop (with the wait for an elicitation answer: pings answered, other messages queued) and process setup |
 | `tests/unit/` | GoogleTest over `Server::handle` and the tools, engine on a scripted transport |
 | `tests/e2e/` | Spawns the built binary with a temporary `FORTI_HOME` and config/state/cache directories |
 | `tests/integration/` | Real forti-mcp over stdio and real forti against forti-cli's `tests/mock-fortios` (needs a forti-cli with `subproject_cli`) |
@@ -60,11 +61,15 @@ user-visible changes and run `vlr check` (`.claude/skills/vl-release/`). Release
    back. Never construct URLs, call the SDK, or reimplement engine validation, policy or modes here. If
    the engine needs a change, ask the orchestrator; do not patch the forti-cli subproject.
 2. **Tool schemas mirror the engine requests** (architecture.md "Requests"), strictly
-   (`additionalProperties: false`). `forti_apply` takes only `plan_id`. Change them only with the
-   engine contract.
-3. **The server can never approve a plan or change a profile's mode.** There is no approve tool and
-   none may be added. In guarded mode, `approval_required` must reach the user with the exact
-   `forti plan approve <id>` command.
+   (`additionalProperties: false`). `forti_apply` takes exactly one of `plan_id` or `operations`
+   (+ `profile`, `vdom`: the plan request, planned then applied). Change them only with the engine
+   contract.
+3. **Only a person approves, and only in answer to our prompt.** There is no approve tool and none
+   may be added; the server never changes a profile's mode. forti-mcp records an approval
+   (`engine::approve_plan`, `approved_by: mcp:<client>:elicitation`) only from a person's elicitation
+   response, action `accept` with `content.approve === true`, to the prompt it showed, and only for
+   the plan digest it showed. Never from tool arguments or anything else the model can produce.
+   Without form elicitation, `approval_required` must reach the user with `forti approve <id>`.
 4. **No live firewall in tests or development.** Tests use the fake transport and temporary config
    directories. Never touch the user's real config, secret store or AI-client configuration.
 5. **Secrets never leak**: not in tool results, logs, errors or client configuration.

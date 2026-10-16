@@ -1,7 +1,7 @@
 ---
 title: "The workflow: discover, read, plan, apply"
 navTitle: Workflow
-description: How a model uses the four tools, learns a profile's mode and handles guarded approvals.
+description: How a model uses the four tools, applies a change in one call, and gets a person's approval in guarded mode.
 order: 30
 status: published
 tags:
@@ -15,10 +15,17 @@ The four tools are meant to be used in order. The server sends the same outline 
 first call.
 
 ```text
-forti_discover  ->  forti_read  ->  forti_plan  ->  forti_apply {plan_id}
-  find paths         look at the      validate and     execute, as the
-  and attributes     current state    store a change   profile's mode allows
+forti_discover  ->  forti_read  ->  forti_apply {operations}
+  find paths         look at the      plan, validate and apply in one call,
+  and attributes     current state    as the profile's mode allows
+
+                     forti_plan {operations}  ->  forti_apply {plan_id}
+                     (only to preview a change first)
 ```
+
+A routine change is one `forti_apply` call with the operations. `forti_plan` is for when you want to
+see a change before deciding: it stores the plan without applying it, and `forti_apply {plan_id}`
+applies it later.
 
 The examples below show tool arguments. [Tools](/reference/tools) has every field.
 
@@ -81,7 +88,7 @@ device. The result (`data`) carries:
 | `risk`, `summary` | The plan's risk tier (`low`, `elevated`, `critical`) and a one-line summary |
 | `operations` | Per operation: the attribute diff and the exact request (`wire`) that apply will send, secrets redacted |
 | `mode`, `notes` | The profile's mode and what apply will do in it |
-| `approve` | Guarded mode only: `forti plan approve <id>` |
+| `approve` | Guarded mode only: `forti approve <id>`, for approving in a terminal |
 
 Operations run in order at apply time:
 
@@ -94,18 +101,32 @@ Operations run in order at apply time:
 
 ## 4. Apply
 
+Either the operations themselves (planned and applied in one call):
+
+```json
+{"profile": "home", "operations": [
+  {"op": "create", "resource": "firewall/address", "object": {"name": "printer", "subnet": "192.0.2.50 255.255.255.255"}}
+]}
+```
+
+or a plan `forti_plan` stored:
+
 ```json
 {"plan_id": "20261015-104512-a1b2c3"}
 ```
 
-`forti_apply` takes only the plan id; the operations come from the stored plan, so a model cannot
-apply something other than what was planned. What happens depends on the profile's mode.
+Pass exactly one of `operations` and `plan_id`. With `plan_id` the operations come from the stored
+plan, so a model cannot apply something other than what was planned; `profile` and `vdom` go only
+with `operations`. What happens depends on the profile's mode.
 
 | Mode | Result of `forti_apply` |
 |---|---|
-| `read-only` | `policy_denied`: nothing is sent |
-| `guarded` | `approval_required` until a person approves the plan, then it executes |
-| `autonomous` | Executes now |
+| `read-only` | `policy_denied`, with the command an operator would run to allow changes. Nothing is sent |
+| `guarded` | Applied once a person approves this exact plan: in the conversation when the client supports it, otherwise with `forti approve <id>` in a terminal |
+| `autonomous` | Applied now |
+
+The result has the apply record and, for an `operations` call, the plan (`data.plan`: id, summary,
+risk, digest and each operation's diff), so the model can report exactly what changed.
 
 ### How a model learns the mode
 
@@ -114,50 +135,107 @@ results, in every `forti_plan` result (`mode` and `notes`), and the server's ins
 `forti_apply` description explain all three outcomes. Nothing a model sends can change the mode: it
 is set by the operator with `forti configure`.
 
-### Guarded mode: `approval_required`
+### Guarded mode: approval in the conversation
 
-In a guarded profile, the first `forti_apply` returns a tool error (`isError: true`) whose
+When the client supports MCP form elicitation (Claude Code and Codex do), `forti_apply` asks you
+directly, during the call. You see one prompt with the proposed change:
+
+```text
+Apply these changes to FortiGate home?
+
+Device: home (192.0.2.1, serial FGT60FTK20000000, vdom root)
+Mode: guarded · Risk: low · 1 operation
+
+1. create firewall/address "printer"
+   name = printer
+   subnet = 192.0.2.50 255.255.255.255
+
+Plan 20261015-104512-a1b2c3
+```
+
+and one checkbox, **Apply these changes**, unchecked by default.
+
+:::steps
+
+#### You ask for a change
+
+"Add an address object for the printer." The model calls `forti_apply` with the operations.
+
+#### You approve once
+
+The prompt shows the device, the mode, the risk and every attribute change (secrets stay
+`<redacted>`). Check the box and accept to apply; decline or cancel to apply nothing.
+
+#### The model reports
+
+`forti_apply` returns the outcome in the same call: each operation verified on the device, the
+rollback plan and your approval (`data.approval.approved_by`, e.g. `mcp:claude-code:elicitation`).
+
+:::
+
+Only an accepted prompt with the box checked approves. Declining, cancelling, accepting with the box
+unchecked, closing the client or leaving the prompt unanswered for 15 minutes applies nothing; the
+result is `approval_required` with `details.reason` `declined`, `cancelled` or `timeout`, and tells
+the model not to ask again unless you do.
+
+What forti-mcp records, and how it is bound:
+
+- The approval is written only after you accept, as `approved_by: mcp:<client>:elicitation`, through
+  the same engine call as `forti approve`, and appears in `audit.jsonl`.
+- It is bound to the plan you were shown: forti-mcp keeps the digest of the plan it displayed, and
+  refuses to apply (`reason: plan_changed`) if the approval would cover a different one. The plan
+  itself binds the device (profile, host, serial, VDOM) and the operations.
+- The model cannot approve: no tool argument is read as an approval. Only the client's answer to
+  the prompt is.
+
+:::details[How the two protocol eras ask]
+With the `initialize` handshake (MCP 2025-11-25 and 2025-06-18), forti-mcp sends the client an
+`elicitation/create` request during the `tools/call` and waits for the answer. Pings are answered
+meanwhile; other requests wait their turn. If the client cancels the call, nothing is applied and no
+result is sent for it.
+
+With MCP 2026-07-28, servers no longer send requests. The `tools/call` result is
+`resultType: "input_required"`, carrying the prompt and an opaque `requestState`; the client asks you
+and repeats the identical call with your answer. The `requestState` is sealed with HMAC-SHA256 under
+a key that exists only in this forti-mcp process, names the tool, the plan, its digest, the profile,
+the client and the call's arguments, expires after 15 minutes, and is accepted once. A repeated call
+with `operations` does not plan again: it applies the plan you were shown.
+:::
+
+### Guarded mode without in-chat approval
+
+When the client cannot show a prompt, `forti_apply` returns a tool error (`isError: true`) whose
 `structuredContent` is:
 
 ```json
 {"ok": false, "error": {"code": "approval_required",
-  "message": "plan 20261015-104512-a1b2c3 needs a human approval (guarded mode): forti plan approve 20261015-104512-a1b2c3",
+  "message": "plan 20261015-104512-a1b2c3 needs your approval (guarded mode): forti approve 20261015-104512-a1b2c3",
   "details": {"plan_id": "20261015-104512-a1b2c3", "reason": "missing",
-              "approve_command": "forti plan approve 20261015-104512-a1b2c3"}}}
+              "approve_command": "forti approve 20261015-104512-a1b2c3",
+              "watch_command": "forti approve --watch"}}}
 ```
 
-The result also carries a second text block written for the model:
+and a text block for the model, asking it to relay the command:
 
 ```text
-Approval required (guarded mode). Ask the user to run this in their own terminal, then call forti_apply again with the same plan_id:
-  forti plan approve 20261015-104512-a1b2c3
+Approval required (guarded mode): plan 20261015-104512-a1b2c3 was not applied, and this client cannot show an approval prompt. Ask the user to approve it in their own terminal:
+  forti approve 20261015-104512-a1b2c3
+(or to keep `forti approve --watch` running there), then call forti_apply again with {"plan_id": "20261015-104512-a1b2c3"}.
 ```
 
-:::steps
+Run `forti approve <id>` (it shows the plan and asks), or keep `forti approve --watch` open in a
+terminal to be asked about each new plan as it arrives. Then the model calls `forti_apply` with the
+`plan_id`, and it executes.
 
-#### The model relays the command
-
-The model shows you the exact `forti plan approve <id>` command.
-
-#### You approve in your own terminal
-
-`forti plan approve` shows the plan (diff, request bodies, risk) and asks for confirmation.
-
-#### The model applies again
-
-The model calls `forti_apply` again with the same `plan_id`, and it executes.
-
-:::
-
-An approval:
+An approval, whichever way it was given:
 
 - belongs to that plan's digest: a changed or tampered plan is not approved;
 - expires after 24 hours (`reason: expired`);
 - is used once (`reason: used`): applying again needs a new plan and a new approval.
 
 :::callout[The approval is a person's act]{variant="warning"}
-forti-mcp has no approve tool and never writes approvals. In guarded mode the approval is always a
-person's act, outside MCP. Read what that does and does not guarantee in
+forti-mcp has no approve tool. It records an approval only from your answer to its prompt, never
+from anything the model sends. Read what guarded mode does and does not guarantee in
 [Safety and modes](/guides/safety-and-modes#what-guarded-mode-does-not-stop).
 :::
 

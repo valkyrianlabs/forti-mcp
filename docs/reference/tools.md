@@ -16,8 +16,8 @@ others are refused with a protocol error ([Protocol](/reference/protocol)).
 |---|---|---|
 | `forti_discover` | Profiles, a device's identity, version and mode, resource search, a resource's attributes | Only for `what: capabilities` and `live: true` (reads) |
 | `forti_read` | Configuration or monitor data | Reads |
-| `forti_plan` | Validates a change and stores it as a plan | Reads only |
-| `forti_apply` | Executes a stored plan, by `plan_id` only | Writes, if the profile's mode allows |
+| `forti_plan` | Previews a change: validates it and stores it as a plan | Reads only |
+| `forti_apply` | Makes a change: `operations` (plan and apply in one call) or a stored `plan_id` | Writes, if the profile's mode allows |
 
 Every input schema is strict (`additionalProperties: false`): an unknown argument is an error, and
 the message lists the allowed ones. The schemas mirror the engine's requests, which forti-cli shares.
@@ -48,14 +48,14 @@ Configuration or monitor data, bounded and paginated.
   href="/reference/tools#forti-plan"
   eyebrow="Plan"
 }
-Validates a change and stores it as a plan, without touching the device.
+Previews a change: validates it and stores it as a plan, without touching the device.
 :::
 
 :::card[forti_apply]{
   href="/reference/tools#forti-apply"
   eyebrow="Apply"
 }
-Executes a stored plan, by `plan_id` only, as the profile's mode allows.
+Makes a change, from operations or a stored plan, as the profile's mode allows.
 :::
 
 :::
@@ -88,7 +88,7 @@ arguments (code `usage`, with the failing JSON pointer, e.g. `/operations/0/op: 
 | `validation` | Unknown or read-only attribute, or a value that does not decode |
 | `api` | Any other FortiOS error |
 | `stale_plan` | The device changed since the plan was made |
-| `approval_required` | Guarded mode, and the plan has no valid approval |
+| `approval_required` | Guarded mode, and the plan has no valid approval (or the person did not approve it in the prompt) |
 | `policy_denied` | The profile is read-only, or the plan cannot run (already applied, backup failed, tampered) |
 | `partial_failure` | Apply stopped part-way; `details` has the record |
 | `management_connectivity_lost` | Apply stopped after a critical change cut the management path |
@@ -168,7 +168,8 @@ listings), with secrets replaced by `"<redacted>"`. `meta` has `resource`, `prof
 
 ## forti_plan
 
-Validate a configuration change and store it as a plan, without touching the device.
+Preview a configuration change: validate it and store it as a plan, without touching the device. To
+make a change, `forti_apply` with the same `operations` plans and applies in one call.
 
 | Field | Type | Description |
 |---|---|---|
@@ -191,7 +192,7 @@ Each operation:
 `data` has the plan `id` (pass it to `forti_apply` as `plan_id`), `digest`, `kind`, `created_at`,
 `device` (profile, host, port, vdom, serial, version), `risk`, `summary`, `operations` (each with its
 `diff` and the exact request, `wire`, secrets redacted), `mode`, `notes`, `apply` (the equivalent
-`forti apply <id>` command) and, in guarded mode, `approve` (`forti plan approve <id>`).
+`forti apply <id>` command) and, in guarded mode, `approve` (`forti approve <id>`).
 
 :::callout[Redacted values cannot be written]{variant="info"}
 A value of `"<redacted>"` is refused (`validation`): a model cannot write back a secret it was never
@@ -200,7 +201,7 @@ shown.
 
 ## forti_apply
 
-Execute a stored plan on the live firewall.
+Change the live firewall: plan and apply operations in one call, or apply a stored plan.
 
 :::callout[Writes to the device]{variant="warning"}
 `forti_apply` is annotated destructive and not idempotent. Whether it runs depends on the profile's
@@ -209,20 +210,30 @@ mode, not on the client ([Safety and modes](/guides/safety-and-modes)).
 
 | Field | Type | Description |
 |---|---|---|
-| `plan_id` | string matching `^[a-z0-9][a-z0-9-]{11,31}$`, **required** | The plan id `forti_plan` returned |
+| `operations` | array, at least 1 item | The change, exactly as for `forti_plan`: planned, then applied |
+| `profile` | string matching `^[A-Za-z0-9_-]{1,64}$` | With `operations`: device profile |
+| `vdom` | string matching `^[A-Za-z0-9._-]{1,31}$` | With `operations`: VDOM (default: the profile's) |
+| `plan_id` | string matching `^[a-z0-9][a-z0-9-]{11,31}$` | Instead of `operations`: a plan `forti_plan` returned |
 
-Nothing else is accepted: the operations come from the stored plan. The outcome follows the profile's
-mode ([Workflow](/guides/workflow)):
+Pass exactly one of `operations` and `plan_id` (anything else is `usage`). A stored plan already names
+its device, so `profile` and `vdom` go only with `operations`. The outcome follows the profile's mode
+([Workflow](/guides/workflow)):
 
 | Mode | Outcome |
 |---|---|
-| `read-only` | `policy_denied` |
-| `guarded` | `approval_required` until a person runs `forti plan approve <plan_id>`. forti-mcp adds `details.approve_command` and a second text block asking the model to relay the command |
-| `autonomous` | Executes now |
+| `read-only` | `policy_denied`, with `details.mode_command` |
+| `guarded` | Applied once a person approves this exact plan. With a client that supports form elicitation, forti-mcp asks in the conversation during the call; an accepted prompt with **Apply these changes** checked applies, anything else is `approval_required` with `details.reason` `declined`, `cancelled` or `timeout`. Without elicitation, `approval_required` with `details.approve_command` (`forti approve <plan_id>`), `details.watch_command` and a second text block asking the model to relay it |
+| `autonomous` | Applied now |
+
+In the 2026-07-28 protocol the in-chat prompt arrives as a `tools/call` result with
+`resultType: "input_required"`; the client repeats the call with `inputResponses` and `requestState`
+([Protocol](/reference/protocol#in-chat-approval)).
 
 On success, `data` has `status: "applied"`, `plan_id`, `digest`, `operations` (per-operation
 status: `verified`, `applied_unverified`, `failed`, `outcome_unknown` or `not_attempted`), the
 numbers `verified` and `applied_unverified`, `rollback` (the generated rollback plan, with its
 `plan_id`), `backup` for critical plans, and `audit_error` if the audit record could not be written.
 `partial_failure`, `outcome_unknown` and `management_connectivity_lost` carry the same record in
-`error.details`.
+`error.details`. A call with `operations` adds `data.plan` (or `error.details.plan`): the plan's `id`,
+`summary`, `risk`, `digest` and each operation's `diff`. A plan approved in the prompt adds
+`data.approval` (`approved_by`, e.g. `mcp:claude-code:elicitation`, `approved_at`, `via`).

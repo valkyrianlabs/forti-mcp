@@ -37,7 +37,7 @@ forti's `config.json`. forti-mcp reads it and cannot change it.
 | Mode | `forti_plan` | `forti_apply` | Suits |
 |---|---|---|---|
 | `read-only` (default) | Yes: planning only reads, so it works for preview and validation | Refused: `policy_denied` | Monitoring, auditing and planning |
-| `guarded` | Yes | Only after a person approves that exact plan with `forti plan approve <id>` | An agent that prepares and validates changes while a person approves each plan |
+| `guarded` | Yes | Only after a person approves that exact plan: in the conversation when the client supports it, or with `forti approve <id>` in a terminal | An agent that prepares and validates changes while a person approves each one |
 | `autonomous` | Yes | Immediately, with no interactive approval | A capable agent doing real administration |
 
 :::callout[Autonomous mode has no interactive gate]{variant="warning"}
@@ -55,7 +55,8 @@ mode ([Command line](/reference/command-line)).
 
 Autonomous mode included, every `forti_apply`:
 
-- runs only a stored plan, validated against the catalog and the SDK's types before anything is sent;
+- runs only a stored plan (a call with `operations` plans first), validated against the catalog and
+  the SDK's types before anything is sent;
 - refuses a plan whose objects, device or profile changed since it was made (`stale_plan`);
 - runs operations in order without retries, stops at the first failure and verifies each change by
   reading it back;
@@ -84,13 +85,22 @@ reads the device and writes a local plan file. Some clients run read-only tools 
 
 ## What guarded mode does not stop
 
-A mode governs what the **forti-mcp tools** can do. Nothing an MCP client sends can change a mode,
-approve a plan or apply a plan in a read-only profile: there is no approve tool, and the server never
-writes approvals.
+A mode governs what the **forti-mcp tools** can do. Nothing a model sends can change a mode, approve
+a plan or apply a plan in a read-only profile: there is no approve tool, and forti-mcp records an
+approval only from a person's answer to its in-chat prompt (an accepted prompt with **Apply these
+changes** checked), never from tool arguments.
+
+:::callout[In-chat approval trusts the client]{variant="warning"}
+The prompt is shown by your MCP client, so the client is part of what you trust: a client
+configured to answer prompts automatically (for example a hook that accepts elicitations) would
+approve on your behalf. The checkbox is unchecked by default, so a client that accepts a prompt
+without your input approves nothing. Approvals are recorded as `mcp:<client>:elicitation` in
+`audit.jsonl`.
+:::
 
 :::callout[A mode is not a barrier against your own user account]{variant="warning"}
 An agent that can also run shell commands as you (Claude Code's Bash tool, Codex's shell) could run
-`forti plan approve` or `forti configure`, or edit `config.json` and the approval files, exactly as
+`forti approve` or `forti configure`, or edit `config.json` and the approval files, exactly as
 you can. forti uses no passphrase or terminal-only approval, by design.
 :::
 
@@ -100,11 +110,11 @@ For guarded mode to mean "a person approved this":
    Code's settings:
 
    ```json
-   {"permissions": {"deny": ["Bash(forti plan approve:*)", "Bash(forti configure:*)", "Bash(forti profile:*)"]}}
+   {"permissions": {"deny": ["Bash(forti approve:*)", "Bash(forti plan approve:*)", "Bash(forti configure:*)", "Bash(forti profile:*)"]}}
    ```
 
-2. Read the plan before you approve it. `forti plan approve` shows it first (`forti plan show <id>`
-   shows it on its own).
+2. Read the plan before you approve it. The in-chat prompt and `forti approve` both show it first
+   (`forti plan show <id>` shows it on its own).
 
 :::callout[Guidance, not enforcement]{variant="note"}
 The agent skill that `forti mcp install` can install tells agents never to approve plans or change
