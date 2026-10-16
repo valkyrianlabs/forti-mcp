@@ -7,7 +7,7 @@ Format: one "- " bullet per change (concise, technical). Indent continuation lin
 Optional "## Section" headings group bullets; if used, every bullet must be under one.
 One level of nested "  - " detail bullets is allowed. Consolidate; don't paste commit logs.
 -->
-- Engine: forti-cli v0.4.2 on forti-api 1.1.1 (builds on macOS 15 / Xcode 16; schema tables with hidden
+- Engine: forti-cli v0.4.2 (468f9e1) on forti-api 1.1.1 (builds on macOS 15 / Xcode 16; schema tables with hidden
   visibility).
 - Homebrew bottles for arm64 and Intel, built on macOS 15.
 - Recommend (not depend on) valkyrianlabs-archive-keyring; the clean-install smoke test is a standalone

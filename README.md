@@ -70,7 +70,7 @@ the package turns the symlink back into a plain copy. Signing key fingerprint:
 **From source**: see [Building](#building).
 
 `forti-mcp --version` names what it was built from, e.g.
-`forti-mcp 0.4.1 (engine forti-cli c9cf77c, forti-api 1.1.1)`.
+`forti-mcp 0.4.1 (engine forti-cli 468f9e1, forti-api 1.1.1)`.
 
 ### forti-mcp and forti-cli
 
