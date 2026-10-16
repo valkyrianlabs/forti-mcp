@@ -6,6 +6,7 @@
 #include <forti/engine/approval.hpp>
 
 #include <algorithm>
+#include <chrono>
 #include <format>
 #include <regex>
 
@@ -606,7 +607,10 @@ namespace forti::mcp {
     // the same digest, and apply.
     Tools::Applied Tools::approve_and_apply(const std::string& plan_id, const std::string& shown_digest, const CallContext& context) {
         std::string approved_by = std::format("mcp:{}:elicitation", context.client.empty() ? "unknown" : context.client);
-        json approved = engine::Engine::envelope([&] { return engine::approve_plan(engine_, plan_id, approved_by); });
+        // Bound to the digest the person was shown: the engine refuses (and writes nothing) if the plan
+        // changed since.
+        json approved = engine::Engine::envelope(
+                [&] { return engine::approve_plan(engine_, plan_id, approved_by, std::chrono::hours(24), shown_digest); });
         if (!approved.value("ok", false)) return {std::move(approved), {}, std::nullopt};
         const json& record = approved["data"];
         if (record.value("digest", "") != shown_digest)

@@ -284,9 +284,13 @@ TEST_F(Elicitation, ApprovalIsBoundToTheShownDigest) {
     };
     script_plan();
     json error = error_of(*legacy_apply({{"operations", create_address()}}));
-    EXPECT_EQ(error["code"], "approval_required");
+    EXPECT_EQ(error["code"], "stale_plan");   // the engine refuses the approval itself
     EXPECT_EQ(error["details"]["reason"], "plan_changed");
     EXPECT_EQ(writes(), 0u);
+    // ... and writes none: the swapped plan cannot be applied later on this answer.
+    std::error_code ec;
+    for (const auto& entry: std::filesystem::directory_iterator(paths.state / "approvals", ec))
+        ADD_FAILURE() << "approval written: " << entry.path();
 }
 
 // ---- guarded, modern era (Multi Round-Trip Requests) ----
