@@ -45,7 +45,7 @@ sudo apt install -y forti-cli      # the forti CLI, which recommends (and so ins
 sudo apt install -y forti-mcp      # forti-mcp alone, without the CLI
 ```
 
-The packages depend on `valkyrianlabs-archive-keyring`, which installs the repository key at
+The packages recommend `valkyrianlabs-archive-keyring` (APT installs it by default), which puts the repository key at
 `/usr/share/keyrings/valkyrianlabs.gpg` and keeps it current through normal upgrades (for example when its
 expiry changes). When the key downloaded above is unmodified, the package replaces it with a symlink to the
 packaged key, so the source line above keeps working and you never need to download the key again. Removing
@@ -63,8 +63,8 @@ brew install valkyrianlabs/tap/forti-mcp      # forti-mcp alone
 
 Recent Homebrew versions ask you to trust a third-party tap first (`brew trust valkyrianlabs/tap`).
 
-Releases from 0.3 on ship bottles for Apple silicon, so the install takes seconds. Elsewhere (Intel
-Macs, or an older macOS than the bottle's) the formula builds from source, which takes a few minutes.
+Releases ship bottles for macOS 15 or later, on Apple silicon and Intel (from 0.4.1), so the install
+takes seconds. On an older macOS the formula builds from source, which takes a few minutes.
 :::
 
 :::tab[From source]{value="source"}
