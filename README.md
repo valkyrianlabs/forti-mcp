@@ -17,20 +17,23 @@ Full documentation: [docs/](docs/index.md).
 |---|---|---|
 | `forti_discover` | Profiles, a device's identity, version and **mode**, resource search, a resource's attributes | Only for `capabilities` and `live: true` (reads) |
 | `forti_read` | Configuration or monitor data, with `key`, `fields`, `filter`, `start`/`count` | Reads |
-| `forti_plan` | Validates a change and stores it as a plan (diff, request bodies, risk tier) | Reads only |
-| `forti_apply` | Executes a stored plan, by `plan_id` only | Writes, if the profile's mode allows |
+| `forti_plan` | Previews a change: validates it and stores it as a plan (diff, request bodies, risk tier) | Reads only |
+| `forti_apply` | Makes a change: `operations` (plans and applies in one call) or a stored `plan_id` | Writes, if the profile's mode allows |
 
 What `forti_apply` may do is set per device profile by the operator in `forti configure`. MCP cannot
 change it:
 
 - **read-only** (default): plans work for preview; apply is refused (`policy_denied`).
-- **guarded**: apply returns `approval_required` with the command for you to run in your terminal,
-  `forti plan approve <plan_id>`. After that, apply runs.
+- **guarded**: apply asks you to approve the exact change. When the client supports MCP elicitation
+  (Claude Code, Codex), you get one prompt in the conversation showing the device, mode, risk and
+  every attribute change; check **Apply these changes** and it runs in the same call. Otherwise apply
+  returns `approval_required` with `forti approve <plan_id>` for your terminal (or keep
+  `forti approve --watch` running), and the model applies again after you approve.
 - **autonomous**: apply runs immediately. Drift detection, verification, an audit record and a
   rollback plan still apply.
 
 A mode limits what this server's tools can do. It does not limit an agent that can also run shell
-commands as you: such an agent could run `forti plan approve` itself. Keep your client's permission
+commands as you: such an agent could run `forti approve` itself. Keep your client's permission
 prompts on for `forti` commands (forti-cli's `docs/security.md`, "What a mode does and does not stop").
 Device secrets in read results (FortiOS `ENC ...` values, passwords, keys) come back as `"<redacted>"`,
 listed in `meta.redacted`. This server has no way to reveal them.
@@ -75,7 +78,7 @@ the package turns the symlink back into a plain copy. Signing key fingerprint:
 [forti-cli](https://github.com/valkyrianlabs/forti-cli) and never runs the `forti` executable, so
 neither package depends on the other. You still want the `forti` CLI next to it (the
 `forti-cli` package or formula): device profiles and credentials are created with `forti configure`,
-guarded-mode approvals are given with `forti plan approve`, and `forti mcp install` sets up the agent
+terminal approvals are given with `forti approve`, and `forti mcp install` sets up the agent
 workspace for Claude Code and Codex. The two use the same forti home, `~/.forti` (or `$FORTI_HOME`):
 profiles, file-stored credentials, certificates, plans and the audit log. A pre-0.2 setup in
 `~/.config/forti` keeps working until `forti home migrate` moves it.

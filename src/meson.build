@@ -8,9 +8,11 @@ version_hpp = configure_file(output : 'forti_mcp_version.hpp',
 
 mcp_inc = include_directories('.')
 
-# The protocol core (no I/O), shared by the executable and the tests.
+# The protocol core and the stdio transport, shared by the executable and the tests (the transport is
+# driven over pipes in tests/unit/test_stdio.cpp).
 mcp_core = static_library('forti-mcp-core',
-                          'protocol.cpp', 'tools.cpp', 'budget.cpp', 'options.cpp',
+                          'protocol.cpp', 'tools.cpp', 'approval.cpp', 'crypto.cpp', 'budget.cpp', 'options.cpp',
+                          'stdio.cpp',
                           version_hpp,
                           include_directories : mcp_inc,
                           dependencies : forti_engine,
@@ -18,7 +20,7 @@ mcp_core = static_library('forti-mcp-core',
 mcp_core_dep = declare_dependency(include_directories : mcp_inc, link_with : mcp_core,
                                   dependencies : forti_engine, sources : version_hpp)
 
-forti_mcp_exe = executable('forti-mcp', 'main.cpp', 'stdio.cpp',
+forti_mcp_exe = executable('forti-mcp', 'main.cpp',
                            dependencies : mcp_core_dep,
                            implicit_include_directories : false,
                            install : true)

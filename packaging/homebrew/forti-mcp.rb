@@ -22,8 +22,8 @@ class FortiMcp < Formula
   # subprojects/forti-cli.wrap pins (packaging/forti-cli-pin.sh keeps the two in step). forti-mcp
   # installs independently: it needs neither the forti-cli formula nor the `forti` executable.
   resource "forti-cli" do
-    url "https://github.com/valkyrianlabs/forti-cli/archive/d0e83a803d8c849ff092866339866c2bea69e498.tar.gz"
-    sha256 "c11cb1a424d27d1e237322576723c1a9b95ccabc0bf857b649974938503d3572"
+    url "https://github.com/valkyrianlabs/forti-cli/archive/c9cf77c35173dff7e4c07eca1d04f2238d4f16f7.tar.gz"
+    sha256 "d33eabe8a55254a81ebe2dad6bd658d7c6e443effc52353b27455a8e8ccdae68"
   end
 
   def install

@@ -1,5 +1,6 @@
 #include "protocol.hpp"
 
+#include "approval.hpp"
 #include "budget.hpp"
 
 #include <forti_mcp_version.hpp>
@@ -81,6 +82,14 @@ namespace forti::mcp {
                                    std::format("Invalid Request: message exceeds {} bytes", max_message_bytes)));
     }
 
+    std::optional<json> parse_message(std::string_view line) {
+        if (line.find_first_not_of(" \t\r\n") == std::string_view::npos) return std::nullopt;
+        if (line.size() > max_message_bytes || !nesting_within(line, max_nesting)) return std::nullopt;
+        json message = json::parse(line, nullptr, false);
+        if (message.is_discarded()) return std::nullopt;
+        return message;
+    }
+
     std::optional<std::string> Server::handle_line(std::string_view line) {
         auto first = line.find_first_not_of(" \t\r\n");
         if (first == std::string_view::npos) return std::nullopt;   // blank line: not a message
@@ -106,7 +115,8 @@ namespace forti::mcp {
         auto method_it = message.find("method");
 
         if (method_it == message.end()) {
-            // A response from the client (we never send requests, so there is nothing to match): ignore it.
+            // A response from the client that arrived after its request stopped waiting (stdio.cpp matches
+            // the awaited one): ignore it.
             if (id_it != message.end() && (message.contains("result") || message.contains("error"))) return std::nullopt;
             return error_response(id, invalid_request, "Invalid Request: missing \"method\"");
         }
@@ -127,7 +137,8 @@ namespace forti::mcp {
             if (!params_ok) return std::nullopt;
             // notifications/initialized needs no action: legacy requests are served once initialize is answered.
             // notifications/cancelled: requests are handled synchronously and in order, so by the time a
-            // cancellation is read its request has already been answered; the spec allows ignoring it.
+            // cancellation reaches here its request has already been answered; the spec allows ignoring it.
+            // (One for a tools/call that is waiting on the person is handled by the transport.)
             return std::nullopt;
         }
 
@@ -155,14 +166,17 @@ namespace forti::mcp {
                 auto caps = meta->find(meta_capabilities);
                 if (caps == meta->end() || !caps->is_object())
                     throw RpcError{invalid_params, std::format("Invalid params: _meta \"{}\" (an object) is required", meta_capabilities)};
-                if (auto client = meta->find(meta_client); client != meta->end() && !client->is_object())
-                    throw RpcError{invalid_params, std::format("Invalid params: _meta \"{}\" must be an object", meta_client)};
+                if (auto client = meta->find(meta_client); client != meta->end()) {
+                    if (!client->is_object())
+                        throw RpcError{invalid_params, std::format("Invalid params: _meta \"{}\" must be an object", meta_client)};
+                    tools_.identify_client(client_label(*client));
+                }
 
                 if (method == "server/discover") result = discover_result();
                 else if (method == "tools/list") result = list_tools(params, true);
-                else if (method == "tools/call") result = call_tool(params);
+                else if (method == "tools/call") result = call_tool(params, meta, *id);
                 else throw RpcError{method_not_found, std::format("Method not found: {}", method)};
-                result["resultType"] = "complete";
+                if (!result.contains("resultType")) result["resultType"] = "complete";   // else input_required
                 result["_meta"] = {{meta_server, server_info()}};
             } else if (method == "ping") {
                 result = json::object();   // legacy; allowed before initialize too
@@ -172,11 +186,13 @@ namespace forti::mcp {
                                    std::format("Invalid params: _meta \"{}\" and \"{}\" are required (or send initialize "
                                                "first for a legacy session)", meta_version, meta_capabilities),
                                    {{"supported", supported_versions()}}};
-                result = method == "tools/list" ? list_tools(params, false) : call_tool(params);
+                result = method == "tools/list" ? list_tools(params, false) : call_tool(params, nullptr, *id);
             } else {
                 throw RpcError{method_not_found, std::format("Method not found: {}", method)};
             }
             return json{{"jsonrpc", "2.0"}, {"id", *id}, {"result", std::move(result)}};
+        } catch (const CallAbandoned&) {
+            return std::nullopt;   // cancelled by the client while waiting: no response (the spec's rule)
         } catch (const RpcError& error) {
             return error_response(id, error.code, error.message, error.data);
         } catch (const std::exception& error) {
@@ -193,8 +209,12 @@ namespace forti::mcp {
                            {{"supported", supported_versions()}}};
         if (auto caps = params.find("capabilities"); caps == params.end() || !caps->is_object())
             throw RpcError{invalid_params, "Invalid params: \"capabilities\" (an object) is required"};
-        if (auto client = params.find("clientInfo"); client == params.end() || !client->is_object())
+        auto client = params.find("clientInfo");
+        if (client == params.end() || !client->is_object())
             throw RpcError{invalid_params, "Invalid params: \"clientInfo\" (an object) is required"};
+        legacy_capabilities_ = params.at("capabilities");
+        legacy_client_ = client_label(*client);
+        tools_.identify_client(legacy_client_);
 
         // Legacy negotiation: echo a supported version, else answer with the latest legacy one and let the
         // client decide. Modern versions have no handshake, so they also get the latest legacy version.
@@ -233,7 +253,7 @@ namespace forti::mcp {
         return result;
     }
 
-    json Server::call_tool(const json& params) {
+    json Server::call_tool(const json& params, const json* meta, const json& id) {
         auto name = params.find("name");
         if (name == params.end() || !name->is_string())
             throw RpcError{invalid_params, "Invalid params: \"name\" (a string) is required"};
@@ -248,7 +268,35 @@ namespace forti::mcp {
                                std::format("Unknown tool: {} (forti-mcp runs with --read-only; plan and apply are disabled)", tool_name)};
             throw RpcError{invalid_params, std::format("Unknown tool: {}", utf8_prefix(tool_name, 128))};
         }
-        return tools_.call(*tool, arguments == params.end() ? json::object() : *arguments);
+
+        CallContext context;
+        if (meta) {
+            context.modern = true;
+            context.form_elicitation = supports_form_elicitation(meta->at(meta_capabilities));
+            if (auto client = meta->find(meta_client); client != meta->end()) context.client = client_label(*client);
+            // A retry after input_required (Multi Round-Trip Requests): both live in params.
+            if (auto responses = params.find("inputResponses"); responses != params.end()) {
+                if (!responses->is_object()) throw RpcError{invalid_params, "Invalid params: \"inputResponses\" must be an object"};
+                context.input_responses = &*responses;
+            }
+            if (auto state = params.find("requestState"); state != params.end()) {
+                if (!state->is_string()) throw RpcError{invalid_params, "Invalid params: \"requestState\" must be a string"};
+                context.request_state = &*state;
+            }
+        } else {
+            context.form_elicitation = supports_form_elicitation(legacy_capabilities_);
+            context.client = legacy_client_;
+            context.elicit_with_mode = legacy_version_ != "2025-06-18";
+            if (ask_client_)
+                context.elicit = [this, &id](const json& elicit_params) {
+                    json request = {{"jsonrpc", "2.0"},
+                                    {"id", std::format("forti-mcp-elicit-{}", ++requests_sent_)},
+                                    {"method", "elicitation/create"},
+                                    {"params", elicit_params}};
+                    return ask_client_(request, id);
+                };
+        }
+        return tools_.call(*tool, arguments == params.end() ? json::object() : *arguments, context);
     }
 
 }  // namespace forti::mcp

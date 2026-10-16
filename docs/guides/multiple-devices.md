@@ -47,7 +47,8 @@ forti-mcp again.
 
 ## How a request picks its device
 
-`forti_discover`, `forti_read` and `forti_plan` accept a `profile` field. A request uses:
+`forti_discover`, `forti_read`, `forti_plan` and `forti_apply` with `operations` accept a `profile`
+field. A request uses:
 
 1. the `profile` it names;
 2. else the registration's `--profile`;
@@ -55,7 +56,7 @@ forti-mcp again.
 4. else the only profile, when there is exactly one.
 
 With several profiles and no default, a request that names none fails with a `config` error that
-says so. `forti_apply` takes only a `plan_id`: a stored plan already names its profile.
+says so. `forti_apply` with a `plan_id` takes no profile: a stored plan already names its device.
 
 The model learns the devices from `forti_discover`:
 
@@ -103,5 +104,5 @@ forti profile mode lab autonomous
 ```
 
 `forti_discover` reports each profile's mode, and `forti_plan` says what apply will do in it. A
-guarded plan on one device is approved with `forti plan approve <id>` like any other; the plan id
-already identifies the device.
+guarded change on one device is approved like any other, in the conversation or with
+`forti approve <id>`; the plan already identifies the device, and the prompt names it.

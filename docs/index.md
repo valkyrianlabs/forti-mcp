@@ -64,14 +64,15 @@ closes it. No daemon, no network listener, no background service.
 
 :::card[Four tools]{eyebrow="Tools"}
 `forti_discover` (profiles, device identity and mode, resource search, attributes), `forti_read`
-(configuration and monitor data), `forti_plan` (validates a change and stores it as a plan) and
-`forti_apply` (executes a stored plan, by id only).
+(configuration and monitor data), `forti_plan` (previews a change as a stored plan) and
+`forti_apply` (makes a change in one call, or applies a stored plan).
 :::
 
 :::card[The operator decides what may change]{eyebrow="Modes"}
 Each device profile has its own mode, `read-only` (the default), `guarded` or `autonomous`, set in
-`forti configure`. One server reaches every FortiGate in the forti home. Nothing an MCP client sends
-can change a mode or approve a plan.
+`forti configure`. One server reaches every FortiGate in the forti home. In guarded mode you approve
+each change in the conversation, or with `forti approve` in a terminal; nothing the model sends can
+change a mode or approve a plan.
 :::
 
 :::card[Bounded results]{eyebrow="Paging"}
@@ -100,7 +101,7 @@ requests and back. It never runs the `forti` executable, so the two packages ins
 
 :::callout[Install forti as well]{variant="info"}
 You still want `forti` next to forti-mcp. Device profiles and credentials are created with
-`forti configure`, guarded-mode approvals are given with `forti plan approve`, and
+`forti configure`, terminal approvals are given with `forti approve`, and
 `forti mcp install` sets up the workspace for Claude Code and Codex. Both programs use the same forti
 home (`~/.forti`), so a plan made in one can be inspected, approved or applied in the other.
 :::

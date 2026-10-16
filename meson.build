@@ -12,6 +12,10 @@ if not get_option('debug') and host_machine.system() != 'darwin' and cxx.has_lin
     add_global_link_arguments('-Wl,--gc-sections', language : 'cpp')
 endif
 
+# Nothing here is a shared library: hidden visibility keeps forti-api's inline schema tables from
+# becoming weak exported symbols that dyld coalesces on every start (~20 ms; forti-cli does the same).
+add_global_arguments(cxx.get_supported_arguments('-fvisibility=hidden', '-fvisibility-inlines-hidden'), language : 'cpp')
+
 # The command engine, built from forti-cli's source (subproject; forti-cli builds only the engine
 # there). It brings forti-api, the only FortiOS implementation, with it.
 # With tests enabled the subproject also builds (never installs) `forti`: the integration tests drive

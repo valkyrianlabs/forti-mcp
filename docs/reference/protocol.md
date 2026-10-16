@@ -33,8 +33,9 @@ value must be `2026-07-28`, `io.modelcontextprotocol/clientCapabilities` must be
 | `tools/list` | `tools`, `ttlMs: 300000`, `cacheScope: "private"` |
 | `tools/call` | The tool result ([Tools](/reference/tools)) |
 
-Every modern result also carries `resultType: "complete"` and `_meta`
-`io.modelcontextprotocol/serverInfo` (`name: forti-mcp`, `title`, `version`, `description`).
+Every modern result also carries `resultType` (`"complete"`, or `"input_required"` for an in-chat
+approval) and `_meta` `io.modelcontextprotocol/serverInfo` (`name: forti-mcp`, `title`, `version`,
+`description`).
 
 ```json
 {"jsonrpc": "2.0", "id": 1, "method": "tools/list",
@@ -65,12 +66,82 @@ request is judged by its own `_meta`.
 
 - `tools/list` returns every tool in one page. No cursor is ever issued, so any `cursor` is invalid.
 - Notifications are never answered, even malformed ones. `notifications/initialized` needs no
-  action, and `notifications/cancelled` is ignored: requests are handled one at a time, in order, so
-  a request has already been answered by the time its cancellation is read.
-- Responses from the client (messages with `result` or `error` and no `method`) are ignored; the
-  server never sends requests.
+  action. Requests are handled one at a time, in order, so a cancellation usually arrives after its
+  request was answered and is ignored; the one exception is a `forti_apply` waiting for an in-chat
+  approval (below).
+- Responses from the client (messages with `result` or `error` and no `method`) are ignored unless
+  they answer the approval request the server is waiting for.
 - The `instructions` text tells the model the workflow, how each mode answers `forti_apply`, the byte
   budget, and that device data is untrusted.
+
+## In-chat approval
+
+In guarded mode `forti_apply` asks the person to approve the exact plan through MCP form elicitation,
+when the client declares it: `capabilities.elicitation` in `initialize` (legacy), or
+`io.modelcontextprotocol/clientCapabilities.elicitation` on the request (modern). `{}` and
+`{"form": {}}` qualify; `{"url": {}}` alone does not. Without it, `forti_apply` returns
+`approval_required` with `forti approve <plan_id>` for a terminal.
+
+The request is `mode: "form"` (left out for `2025-06-18`), a `message` with the proposal (device,
+mode, risk, every operation and attribute change, secrets redacted, the plan id; device text is
+stripped of control characters, URL schemes are defanged, and the whole is capped at 4000
+characters), and this schema:
+
+```json
+{"type": "object", "required": ["approve"],
+ "properties": {"approve": {"type": "boolean", "title": "Apply these changes", "default": false,
+                            "description": "Check to apply plan <id> to <profile> now. Leave unchecked, decline or cancel to apply nothing."}}}
+```
+
+Only `{"action": "accept", "content": {"approve": true}}` approves. forti-mcp then records the
+approval (`approved_by: mcp:<client>:elicitation`, where `<client>` is `clientInfo.name` reduced to
+`[A-Za-z0-9._-]`, at most 64 characters), checks that it covers the digest of the plan it showed, and
+applies.
+
+:::tabs{
+  default="legacy"
+  theme="glass"
+  tabTheme="muted"
+}
+
+:::tab[Legacy: a request during the call]{value="legacy"}
+forti-mcp sends `elicitation/create` (id `forti-mcp-elicit-N`) on stdout while the `tools/call` is in
+progress and reads stdin until the matching response arrives. Meanwhile:
+
+| Message | Handling |
+|---|---|
+| The response with the awaited id | Read as the person's answer |
+| A response with another id | Ignored |
+| `ping` | Answered at once |
+| `notifications/cancelled` for this `tools/call` | Nothing is applied and no response is sent for the call |
+| Anything else | Queued, then handled in order after the call is answered |
+| End of input | Nothing is applied (`reason: cancelled`); queued messages are still handled |
+| No answer within 15 minutes | Nothing is applied (`reason: timeout`); a late answer is ignored |
+:::
+
+:::tab[Modern: Multi Round-Trip Requests]{value="modern"}
+Servers no longer send requests in 2026-07-28. The `tools/call` result is:
+
+```json
+{"resultType": "input_required",
+ "inputRequests": {"approve": {"method": "elicitation/create", "params": {"mode": "form", "message": "...", "requestedSchema": {}}}},
+ "requestState": "<opaque>"}
+```
+
+The client asks the person and repeats the identical call (new JSON-RPC id, same `name` and
+`arguments`) with `params.inputResponses` (`{"approve": <ElicitResult>}`) and `params.requestState`.
+The state is `base64url(payload).base64url(HMAC-SHA256)` under a random key that lives only in this
+process. The payload names the tool, the plan id, its digest, the profile, the client, a SHA-256 of
+the call's arguments, an expiry 15 minutes out and a nonce. On the retry forti-mcp verifies the MAC,
+the expiry, that the tool, arguments and client match, and that the nonce was not used before (a
+state is accepted once). A retry with `operations` applies the plan from the state; it does not plan
+again. A retry without `inputResponses.approve` asks again. A state that fails is a tool error,
+`approval_required` with `details.reason` `invalid_request_state`, `request_mismatch`,
+`approval_expired` or `approval_replayed`, and nothing is applied. A non-object `inputResponses` or
+non-string `requestState` is `-32602`.
+:::
+
+:::
 
 ## Errors
 
