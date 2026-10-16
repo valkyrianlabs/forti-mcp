@@ -1,3 +1,13 @@
+forti-mcp (0.4.1-1) unstable; urgency=medium
+
+  * Engine: forti-cli v0.4.2 (468f9e1) on forti-api 1.1.1 (builds on macOS 15 /
+    Xcode 16; schema tables with hidden visibility).
+  * Homebrew bottles for arm64 and Intel, built on macOS 15.
+  * Recommend (not depend on) valkyrianlabs-archive-keyring; the clean-install
+    smoke test is a standalone install again. Release tooling vl-release 0.5.1.
+
+ -- Cooper Larson <cooper@valkyrianlabs.com>  Fri, 16 Oct 2026 22:57:58 +0000
+
 forti-mcp (0.4.0-1) unstable; urgency=medium
 
   * Depend on valkyrianlabs-archive-keyring so renewed APT signing-key metadata

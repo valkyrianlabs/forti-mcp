@@ -1,5 +1,17 @@
 # forti-mcp release notes
 
+<!-- vl-release:entry version=0.4.1 -->
+## 0.4.1 — Bottles for every Mac on macOS 15 or later
+
+_Released 2026-10-16_
+
+- **Homebrew pours a bottle on macOS 15 or later, on Apple silicon and Intel.** forti-mcp 0.4.0 could
+  not be built on macOS 15, because forti-api 1.1.0 needed Xcode 26's C++ library; this release is
+  built on forti-api 1.1.1, which fixes that, with forti-cli 0.4.2's engine.
+- **The `.deb` installs on its own again.** It recommends `valkyrianlabs-archive-keyring` instead of
+  depending on it: installs from the APT repository still get the keyring, and the package from a
+  GitHub release installs without the repository.
+
 <!-- vl-release:entry version=0.4.0 -->
 ## 0.4.0 — Approve changes in the conversation
 
