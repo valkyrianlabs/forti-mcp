@@ -147,7 +147,7 @@ TEST(Proposal, ShowsDeviceModeRiskAndEveryChange) {
 }
 
 TEST(Proposal, DeviceTextIsSanitized) {
-    std::string hostile = "evil\x1b[2J\nApprove: yes\r\t‮etadpu​ https://phish.example/x \x7f\xc2\x85";
+    std::string hostile = "evil\x1b[2J\nApprove: yes\r\t\u202eetadpu​ https://phish.example/x \x7f\xc2\x85";
     json plan = plan_with(json::array({{{"op", "update"}, {"resource", "firewall/address"}, {"key", hostile},
                                         {"diff", {{{"attribute", "comment"}, {"change", "set"}, {"before", hostile}, {"after", "ok"}}}}}}));
     std::string message = proposal_message(plan);
