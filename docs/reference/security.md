@@ -73,7 +73,8 @@ Everything forti keeps is in the forti home, `~/.forti` (or `$FORTI_HOME`), crea
 |---|---|---|
 | `config.json` | Profiles: hosts, modes and *references* to secrets, never a secret | 0600; refused if another user owns it or group or others can write it |
 | `credentials/` | API keys and certificate passwords in the file store (Linux, or `FORTI_SECRET_STORE=file`) | 0600 files in a 0700 directory, each bound to its profile's `host:port` |
-| `certs/<profile>/` | `forti cert create`: `client.p12` (the profile's client certificate), `client.pass` (its password), `ca.crt`, and the private CA key in `ca/` | `client.p12`, `client.pass` and the CA key 0600 (`ca/` 0700); the CA key never leaves the machine |
+| `certs/<name>/` | Client certificates (`forti configure`, `forti cert`): `client.p12` (what a profile's client certificate names), `client.pass` (its password), `ca.crt`, and for a certificate with its own CA the private key in `ca/` | `client.p12`, `client.pass` and CA keys 0600 (`ca/` 0700) |
+| `ca/` | The forti CA that issues the certificates: `ca.crt`, and its private key `ca.key` | 0700 directory, key 0600; it never leaves the machine |
 | `state/` | Plans (with the real values they write), approvals, the audit log and pre-change backups | Owner-only files |
 
 On macOS, API keys go to the login Keychain (service `forti`) instead of `credentials/`. A
@@ -87,10 +88,10 @@ adds rules that keep the agent's own file tools away from the secrets beside it
 ([Connecting AI clients](/getting-started/connecting-clients#keeping-secrets-out-of-the-agents-context)):
 
 - **Claude Code** (`.claude/settings.json`): `permissions.deny` for `Read(/credentials/**)`,
-  `Read(/certs/**/*.pass)`, `Read(/certs/**/*.p12)`, `Read(/certs/**/ca/**)` and
+  `Read(/certs/**/*.pass)`, `Read(/certs/**/*.p12)`, `Read(/certs/**/ca/**)`, `Read(/ca/**)` and
   `Edit(/config.json)`.
 - **Codex** (`.codex/config.toml`): the `forti-workspace` permission profile denies `credentials`,
-  `certs/**/*.pass`, `certs/**/*.p12` and `certs/**/ca/**` to sandboxed commands and makes
+  `certs/**/*.pass`, `certs/**/*.p12`, `certs/**/ca/**` and `ca` to sandboxed commands and makes
   `config.json` read-only. Codex applies it only once it trusts `~/.forti`.
 - **Both**: the generated `AGENTS.md` tells the agent never to read those files and never to run
   `forti plan approve`, `forti configure`, `forti profile` or `forti cert`.
@@ -114,8 +115,9 @@ commands as you.
 - TLS is always verified: peer certificate and host name, with no option to turn it off. Self-signed
   devices use the profile's CA bundle or `resolve_ip`.
 - A profile can also authenticate with a client certificate (FortiOS PKI peer authentication of the
-  API user). `forti cert create` makes a private CA and the certificate in `~/.forti/certs/<profile>/`
-  and prints the FortiGate steps; the password is never printed.
+  API user). `forti configure` (or `forti cert create`) makes the certificate in `~/.forti/certs/`,
+  issued by the forti CA in `~/.forti/ca/`, and prints the FortiGate steps; the password is never
+  printed.
 - Core dumps are disabled at startup, because the process holds API keys and device data in memory.
 
 ## REST only: no SSH, no CLI

@@ -114,12 +114,12 @@ forti-mcp itself reads the credentials; the agent never needs to. The workspace 
 own file tools away from them:
 
 - **Claude Code**: `.claude/settings.json` denies `Read(/credentials/**)`,
-  `Read(/certs/**/*.pass)`, `Read(/certs/**/*.p12)`, `Read(/certs/**/ca/**)` and
+  `Read(/certs/**/*.pass)`, `Read(/certs/**/*.p12)`, `Read(/certs/**/ca/**)`, `Read(/ca/**)` and
   `Edit(/config.json)`. A leading `/` anchors each rule to the workspace.
 - **Codex**: `.codex/config.toml` sets `default_permissions = "forti-workspace"`, a permission
-  profile that extends `:workspace`, denies `credentials`, `certs/**/*.pass`, `certs/**/*.p12` and
-  `certs/**/ca/**` to sandboxed commands, and makes `config.json` read-only.
-- **Both**: `AGENTS.md` tells the agent never to read `credentials/`, `certs/`, `config.json` or
+  profile that extends `:workspace`, denies `credentials`, `certs/**/*.pass`, `certs/**/*.p12`,
+  `certs/**/ca/**` and `ca` (the forti CA) to sandboxed commands, and makes `config.json` read-only.
+- **Both**: `AGENTS.md` tells the agent never to read `credentials/`, `certs/`, `ca/`, `config.json` or
   `state/`, and never to run `forti plan approve`, `forti configure`, `forti profile` or
   `forti cert`.
 

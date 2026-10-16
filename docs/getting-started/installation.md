@@ -106,7 +106,8 @@ forti home: ~/.forti
   credentials  ~/.forti/credentials/  file store
   state        ~/.forti/state/  plans, approvals, audit log, backups
   cache        ~/.forti/cache/
-  certs        ~/.forti/certs/  forti cert create
+  certs        ~/.forti/certs/  client certificates (forti cert list)
+  forti CA     ~/.forti/ca/  issues them; its key never leaves this machine
   secrets      macOS Keychain (service "forti")
 ```
 

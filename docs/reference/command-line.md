@@ -67,7 +67,7 @@ the `forti` CLI: `$FORTI_HOME`, else `~/.forti` (`forti home` prints every locat
 | Profiles (`config.json`) and file-stored secrets (`credentials/`) | `~/.forti` | `FORTI_CONFIG_DIR` |
 | Plans, approvals, audit log (`audit.jsonl`), pre-change backups | `~/.forti/state` | `FORTI_STATE_DIR` |
 | Cache (reserved; live schemas are not cached yet) | `~/.forti/cache` | `FORTI_CACHE_DIR` |
-| Client certificates from `forti cert create` | `~/.forti/certs/<profile>` | |
+| Client certificates (`forti cert list`) and the forti CA that issues them | `~/.forti/certs/<name>`, `~/.forti/ca` | |
 
 `FORTI_HOME` moves the whole home; the `FORTI_*_DIR` variables move one location inside it. On
 macOS, API keys stored with `forti configure` live in the login Keychain (service `forti`), and

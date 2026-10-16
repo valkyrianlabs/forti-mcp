@@ -39,7 +39,7 @@ forti profile list
 | `forti profile mode [NAME] MODE` | Sets a profile's mode: `read-only`, `guarded` or `autonomous` |
 | `forti profile set NAME key=value...` | Changes settings such as `port`, `vdom` or `ca_bundle` without contacting the device |
 | `forti profile rename OLD NEW` | Renames a profile with its stored secrets and certificates |
-| `forti cert create --profile NAME` | Makes a client certificate for that profile in `~/.forti/certs/NAME/` |
+| `forti cert use CERT --profile NAME` | Gives a profile a client certificate; one certificate can serve several FortiGates (`forti cert list`) |
 
 forti-mcp reads `config.json` once, at the first request that needs it, and keeps it for the life
 of the process. After adding or changing a profile, start a new agent session so the client starts
