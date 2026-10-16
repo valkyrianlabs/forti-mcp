@@ -60,7 +60,7 @@ echo "deb [signed-by=/etc/apt/keyrings/valkyrianlabs.gpg] https://apt.valkyrianl
 sudo apt update && sudo apt install forti-mcp
 ```
 
-The packages depend on `valkyrianlabs-archive-keyring`, which installs the repository key at
+The packages recommend `valkyrianlabs-archive-keyring` (APT installs it by default), which puts the repository key at
 `/usr/share/keyrings/valkyrianlabs.gpg` and keeps it current through normal upgrades (for example when its
 expiry changes). When the key downloaded above is unmodified, the package replaces it with a symlink to the
 packaged key, so the source line above keeps working and you never need to download the key again. Removing
@@ -70,7 +70,7 @@ the package turns the symlink back into a plain copy. Signing key fingerprint:
 **From source**: see [Building](#building).
 
 `forti-mcp --version` names what it was built from, e.g.
-`forti-mcp 0.3.0 (engine forti-cli d0e83a8, forti-api 1.1.0)`.
+`forti-mcp 0.4.1 (engine forti-cli c9cf77c, forti-api 1.1.1)`.
 
 ### forti-mcp and forti-cli
 
