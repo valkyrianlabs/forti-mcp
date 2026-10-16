@@ -1,3 +1,15 @@
+forti-mcp (0.3.0-1) unstable; urgency=medium
+
+  * Engine: forti-cli v0.3.1 (d0e83a8), on forti-api 1.1.0's runtime schema: no
+    typed shards; resource lookup by CLI words, unique last word and keyed
+    path; attribute suggestions; profile lists and mode commands in error
+    details; missing certificate files caught before any request.
+  * Tool descriptions of forti_read / forti_discover name the new spellings.
+  * Packaging: Homebrew bottle built and published with each release; build
+    jobs budgeted at 1.2 GB; libforti-api-dev (>= 1.1.0).
+
+ -- Cooper Larson <cooper@valkyrianlabs.com>  Fri, 16 Oct 2026 17:58:07 +0000
+
 forti-mcp (0.2.0-1) unstable; urgency=medium
 
   * Engine

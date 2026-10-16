@@ -20,6 +20,7 @@ Architecture: any
 Depends:
  ${misc:Depends},
  ${shlibs:Depends},
+ valkyrianlabs-archive-keyring,
 Description: FortiOS MCP server for AI clients
  forti-mcp lets an AI client (Claude Code, Codex or any other MCP client)
  discover, read and change FortiGate configuration through the FortiOS REST
