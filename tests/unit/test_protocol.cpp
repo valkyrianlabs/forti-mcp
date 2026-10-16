@@ -70,7 +70,8 @@ TEST_F(Fixture, InitializeEchoesSupportedLegacyVersions) {
         EXPECT_TRUE(result["serverInfo"]["version"].is_string());
         EXPECT_FALSE(result.contains("resultType"));
         std::string instructions = result["instructions"];
-        EXPECT_NE(instructions.find("forti plan approve"), std::string::npos);
+        EXPECT_NE(instructions.find("forti approve <plan_id>"), std::string::npos);
+        EXPECT_NE(instructions.find("approval prompt"), std::string::npos);
         EXPECT_NE(instructions.find("untrusted"), std::string::npos);
         EXPECT_NE(instructions.find("REST API only"), std::string::npos);
         EXPECT_EQ(server->legacy_version(), version);
@@ -229,16 +230,21 @@ TEST_F(Fixture, ToolDefinitions) {
     EXPECT_EQ(apply["annotations"]["readOnlyHint"], false);
     EXPECT_EQ(apply["annotations"]["destructiveHint"], true);
     EXPECT_EQ(apply["annotations"]["idempotentHint"], false);
-    EXPECT_EQ(apply["inputSchema"]["properties"].size(), 1u);
-    EXPECT_TRUE(apply["inputSchema"]["properties"].contains("plan_id"));
-    EXPECT_EQ(apply["inputSchema"]["required"], json({"plan_id"}));
+    // Either a stored plan or the operations themselves (one call); exactly one is checked at call time.
+    std::vector<std::string> apply_properties;
+    for (auto it = apply["inputSchema"]["properties"].begin(); it != apply["inputSchema"]["properties"].end(); ++it)
+        apply_properties.push_back(it.key());
+    EXPECT_EQ(apply_properties, (std::vector<std::string>{"operations", "plan_id", "profile", "vdom"}));
+    EXPECT_FALSE(apply["inputSchema"].contains("required"));
+    EXPECT_EQ(apply["inputSchema"]["properties"]["operations"], tools[2]["inputSchema"]["properties"]["operations"]);
     EXPECT_EQ(tools[1]["inputSchema"]["required"], json({"resource"}));
     EXPECT_EQ(tools[2]["inputSchema"]["required"], json({"operations"}));
     EXPECT_EQ(tools[2]["inputSchema"]["properties"]["operations"]["items"]["additionalProperties"], false);
 
     // Workflow and safety are taught where the model reads them.
     std::string apply_text = apply["description"];
-    EXPECT_NE(apply_text.find("forti plan approve"), std::string::npos);
+    EXPECT_NE(apply_text.find("forti approve <plan_id>"), std::string::npos);
+    EXPECT_NE(apply_text.find("approval prompt"), std::string::npos);
     EXPECT_NE(apply_text.find("autonomous"), std::string::npos);
     EXPECT_NE(apply_text.find("cannot approve"), std::string::npos);
     EXPECT_NE(tools[1]["description"].get<std::string>().find("untrusted"), std::string::npos);

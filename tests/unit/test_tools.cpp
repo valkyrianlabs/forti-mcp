@@ -224,10 +224,11 @@ TEST_F(Tools, PlanArgumentsAreStrict) {
     }
 }
 
-TEST_F(Tools, ApplyTakesOnlyAPlanId) {
+TEST_F(Tools, ApplyTakesAPlanIdOrOperations) {
     for (json arguments: {json::object(), json{{"plan_id", ""}}, json{{"plan_id", 5}},
                           json{{"plan_id", "p1"}, {"profile", "lab"}},
-                          json{{"plan_id", "p1"}, {"operations", json::array()}}}) {
+                          json{{"plan_id", "p1"}, {"operations", json::array()}},
+                          json{{"plan_id", "p1"}, {"approve", true}}}) {
         json env = envelope(call("forti_apply", arguments));
         EXPECT_EQ(env["error"]["code"], "usage") << arguments.dump();
     }
@@ -242,13 +243,13 @@ TEST_F(Tools, ApprovalRequiredCarriesTheHumanCommand) {
     json env = {{"ok", false}, {"error", {{"code", "approval_required"}, {"message", "needs approval"}}}};
     auto command = forti::mcp::annotate_approval(env, {{"plan_id", "p-123_x.y"}});
     ASSERT_TRUE(command);
-    EXPECT_EQ(*command, "forti plan approve p-123_x.y");
+    EXPECT_EQ(*command, "forti approve p-123_x.y");
     EXPECT_EQ(env["error"]["details"]["approve_command"], *command);
 
     // The engine's own command wins.
     json engine_env = {{"ok", false}, {"error", {{"code", "approval_required"}, {"message", "m"},
-                                                 {"details", {{"command", "forti plan approve abc"}}}}}};
-    EXPECT_EQ(*forti::mcp::annotate_approval(engine_env, {{"plan_id", "zzz"}}), "forti plan approve abc");
+                                                 {"details", {{"approve_command", "forti approve abc"}}}}}};
+    EXPECT_EQ(*forti::mcp::annotate_approval(engine_env, {{"plan_id", "zzz"}}), "forti approve abc");
 
     // Never builds a command from an id a shell would interpret.
     json unsafe = {{"ok", false}, {"error", {{"code", "approval_required"}, {"message", "m"}}}};

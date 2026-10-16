@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """End-to-end tests of the real `forti-mcp` binary over stdio, against forti-cli's mock FortiOS
 (through libcurl and verified TLS), with the real `forti` binary sharing its state directory for
-configuration and guarded-mode approvals.
+configuration and terminal approvals. In-chat approval (MCP elicitation) is driven over the same pipes.
 
     FORTI_MCP_BINARY=... FORTI_BINARY=... FORTI_MOCK_DIR=subprojects/forti-cli/tests/mock-fortios \\
         python3 tests/integration/test_mcp.py
@@ -163,12 +163,27 @@ class Tools(McpTest):
         self.assertEqual(bad["structuredContent"]["error"]["code"], "usage")
 
 
+MODERN_META = {"io.modelcontextprotocol/protocolVersion": "2026-07-28",
+               "io.modelcontextprotocol/clientCapabilities": {"elicitation": {"form": {}}},
+               "io.modelcontextprotocol/clientInfo": {"name": "forti-it", "version": "1"}}
+
+
 class Guarded(McpTest):
     mode = "guarded"
 
-    def test_plan_in_mcp_approve_in_cli_apply_in_mcp(self) -> None:
+    def approve_in_cli(self, plan_id: str) -> None:
+        """The human approves in a terminal. `forti approve <id>` is the command forti-mcp relays; a forti
+        built before it existed only has `forti plan approve <id>`."""
+        result = self.sb.forti("approve", plan_id, "--yes")
+        self.transcripts += [result.out, result.err]
+        if result.code == 2:
+            self.cli("plan", "approve", plan_id, "--yes")
+        else:
+            self.assertEqual(result.code, 0, result.err)
+
+    def test_without_elicitation_the_terminal_command_is_relayed(self) -> None:
         mcp = self.session()
-        mcp.initialize()
+        mcp.initialize()   # no elicitation capability
         planned = self.ok(mcp.call("forti_plan", {"operations": [ADDRESS]}))["data"]
         plan_id = planned["id"]
         self.assertEqual(self.mock.writes(), [])
@@ -184,23 +199,90 @@ class Guarded(McpTest):
         error = refused["structuredContent"]["error"]
         self.assertEqual(error["code"], "approval_required")
         command = error["details"]["approve_command"]
-        self.assertEqual(command, f"forti plan approve {plan_id}")
+        self.assertEqual(command, f"forti approve {plan_id}")
         self.assertIn(command, refused["content"][-1]["text"])
+        self.assertIn("forti approve --watch", refused["content"][-1]["text"])
         self.assertEqual(self.mock.writes(), [])
 
-        # The human runs the command (here: the real CLI, same state dir) while the server keeps running.
-        self.cli(*command.split()[1:], "--yes")
+        # The human approves in a terminal (the real CLI, same state dir) while the server keeps running.
+        self.approve_in_cli(plan_id)
         applied = self.ok(mcp.call("forti_apply", {"plan_id": plan_id}))["data"]
         self.assertEqual(applied["verified"], 1)
         self.assertEqual(self.mock.table("firewall/address")["web"]["comment"], "from mcp")
         self.assertEqual([(w.method, w.api) for w in self.mock.writes()], [("POST", "cmdb/firewall/address")])
         self.assertEqual(self.mock.writes()[0].json(), planned["operations"][0]["wire"]["body"])
 
-        # The audit log is shared too, and says the approval came from the CLI.
         events = [(e["event"], e.get("outcome")) for e in self.sb.audit()]
         self.assertIn(("apply", "approval_required"), events)
         self.assertEqual(events[-1], ("apply", "ok"))
-        self.assertEqual(self.cli("plan", "show", plan_id, "--json").out.count('"applied"') >= 1, True)
+        self.assertEqual(self.sb.audit()[-1]["actor"], "mcp:forti-it")
+
+    def test_legacy_in_chat_approval(self) -> None:
+        mcp = self.session()
+        init = mcp.request("initialize", {"protocolVersion": "2025-11-25", "capabilities": {"elicitation": {}},
+                                          "clientInfo": {"name": "forti-it", "version": "1"}})
+        self.assertIn("result", init)
+        mcp.send({"jsonrpc": "2.0", "method": "notifications/initialized"})
+        mcp.send({"jsonrpc": "2.0", "id": 50, "method": "tools/call",
+                  "params": {"name": "forti_apply", "arguments": {"operations": [ADDRESS]}}})
+        ask = mcp.receive()
+        self.transcripts.append(json.dumps(ask))
+        self.assertEqual(ask["method"], "elicitation/create")
+        message = ask["params"]["message"]
+        self.assertIn('create firewall/address "web"', message)
+        self.assertIn("comment = from mcp", message)
+        self.assertEqual(self.mock.writes(), [])
+        # A ping while the person decides is answered at once.
+        mcp.send({"jsonrpc": "2.0", "id": 51, "method": "ping"})
+        self.assertEqual(mcp.receive()["id"], 51)
+        mcp.send({"jsonrpc": "2.0", "id": ask["id"], "result": {"action": "accept", "content": {"approve": True}}})
+        response = mcp.receive()
+        self.assertEqual(response["id"], 50)
+        data = self.ok(response["result"])["data"]
+        self.assertEqual(data["verified"], 1)
+        self.assertEqual(data["approval"]["approved_by"], "mcp:forti-it:elicitation")
+        self.assertEqual(self.mock.table("firewall/address")["web"]["comment"], "from mcp")
+        applied = [e for e in self.sb.audit() if e["event"] == "apply"][-1]
+        self.assertEqual((applied["outcome"], applied["approved_by"]), ("ok", "mcp:forti-it:elicitation"))
+
+    def test_legacy_decline_applies_nothing(self) -> None:
+        mcp = self.session()
+        mcp.request("initialize", {"protocolVersion": "2025-06-18", "capabilities": {"elicitation": {}},
+                                   "clientInfo": {"name": "forti-it", "version": "1"}})
+        mcp.send({"jsonrpc": "2.0", "id": 60, "method": "tools/call",
+                  "params": {"name": "forti_apply", "arguments": {"operations": [ADDRESS]}}})
+        ask = mcp.receive()
+        self.assertNotIn("mode", ask["params"])   # 2025-06-18 predates it
+        mcp.send({"jsonrpc": "2.0", "id": ask["id"], "result": {"action": "decline"}})
+        result = mcp.receive()["result"]
+        self.assertTrue(result["isError"])
+        self.assertEqual(result["structuredContent"]["error"]["details"]["reason"], "declined")
+        self.assertEqual(self.mock.writes(), [])
+
+    def test_modern_in_chat_approval(self) -> None:
+        mcp = self.session()
+        arguments = {"operations": [ADDRESS]}
+        params = {"_meta": MODERN_META, "name": "forti_apply", "arguments": arguments}
+        mcp.send({"jsonrpc": "2.0", "id": 70, "method": "tools/call", "params": params})
+        first = mcp.receive()["result"]
+        self.assertEqual(first["resultType"], "input_required")
+        state = first["requestState"]
+        self.assertNotIn("web", state)   # opaque
+        self.assertEqual(self.mock.writes(), [])
+        retry = dict(params, inputResponses={"approve": {"action": "accept", "content": {"approve": True}}},
+                     requestState=state)
+        mcp.send({"jsonrpc": "2.0", "id": 71, "method": "tools/call", "params": retry})
+        response = mcp.receive()
+        self.assertEqual(response["id"], 71)
+        data = self.ok(response["result"])["data"]
+        self.assertEqual(data["approval"]["approved_by"], "mcp:forti-it:elicitation")
+        self.assertEqual(data["plan"]["id"], data["plan_id"])
+        self.assertEqual([(w.method, w.api) for w in self.mock.writes()], [("POST", "cmdb/firewall/address")])
+        # Replaying the answer does nothing.
+        mcp.send({"jsonrpc": "2.0", "id": 72, "method": "tools/call", "params": retry})
+        replay = mcp.receive()["result"]
+        self.assertEqual(replay["structuredContent"]["error"]["details"]["reason"], "approval_replayed")
+        self.assertEqual(len(self.mock.writes()), 1)
 
     def test_mcp_cannot_approve(self) -> None:
         mcp = self.session()
@@ -208,11 +290,21 @@ class Guarded(McpTest):
         tools = mcp.request("tools/list")["result"]["tools"]
         self.assertFalse(any("approve" in t["name"] for t in tools))
         apply_schema = next(t for t in tools if t["name"] == "forti_apply")["inputSchema"]
-        self.assertEqual(sorted(apply_schema["properties"]), ["plan_id"])
+        self.assertEqual(sorted(apply_schema["properties"]), ["operations", "plan_id", "profile", "vdom"])
+        self.assertFalse(apply_schema["additionalProperties"])
 
 
 class Autonomous(McpTest):
     mode = "autonomous"
+
+    def test_apply_operations_in_one_call(self) -> None:
+        mcp = self.session()
+        mcp.initialize()
+        data = self.ok(mcp.call("forti_apply", {"operations": [ADDRESS]}))["data"]
+        self.assertEqual(data["verified"], 1)
+        self.assertEqual(data["plan"]["operations"][0]["resource"], "firewall/address")
+        self.assertNotIn("approval", data)
+        self.assertEqual(self.mock.table("firewall/address")["web"]["comment"], "from mcp")
 
     def test_apply_directly_and_cli_rolls_back(self) -> None:
         self.mock.add_address("old", comment="before")
