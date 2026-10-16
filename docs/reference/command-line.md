@@ -43,7 +43,7 @@ the server's instructions say that plan and apply are not available.
 
 ```text
 $ forti-mcp --version
-forti-mcp 0.2.0 (engine forti-cli 6a19035, forti-api 1.0.1)
+forti-mcp 0.3.0 (engine forti-cli d0e83a8, forti-api 1.1.0)
 ```
 
 ## Exit status

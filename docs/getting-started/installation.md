@@ -87,7 +87,7 @@ forti-mcp --version
 ```
 
 ```text
-forti-mcp 0.2.0 (engine forti-cli 6a19035, forti-api 1.0.1)
+forti-mcp 0.3.0 (engine forti-cli d0e83a8, forti-api 1.1.0)
 ```
 
 The version line names what the binary was built from: the forti-cli engine revision and the

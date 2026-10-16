@@ -60,7 +60,7 @@ sudo apt update && sudo apt install forti-mcp
 **From source**: see [Building](#building).
 
 `forti-mcp --version` names what it was built from, e.g.
-`forti-mcp 0.2.0 (engine forti-cli 6a19035, forti-api 1.0.1)`.
+`forti-mcp 0.3.0 (engine forti-cli d0e83a8, forti-api 1.1.0)`.
 
 ### forti-mcp and forti-cli
 
