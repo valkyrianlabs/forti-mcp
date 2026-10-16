@@ -9,7 +9,7 @@ for users and operators; keep it representative of what actually ships.
 -->
 # Approve changes in the conversation
 
-forti-mcp 0.4 carries forti-cli 0.4.0's engine and makes a change one tool call with, in guarded
+forti-mcp 0.4 carries forti-cli 0.4.1's engine and makes a change one tool call with, in guarded
 mode, one approval where you already are.
 
 ## One call to make a change
@@ -35,4 +35,4 @@ the agent can report exactly what changed.
 - Audit records name the client that applied a change (`mcp:claude-code`), so `forti history` shows
   who did what.
 - Startup is back to about 6 ms.
-- Homebrew pours bottles on Apple silicon and Intel Macs running macOS 15 or later.
+- Homebrew pours a bottle on Apple silicon Macs running macOS 26 or later.

@@ -7,7 +7,7 @@ Format: one "- " bullet per change (concise, technical). Indent continuation lin
 Optional "## Section" headings group bullets; if used, every bullet must be under one.
 One level of nested "  - " detail bullets is allowed. Consolidate; don't paste commit logs.
 -->
-- Engine: forti-cli v0.4.0 (8c2bed4): approvals bound to the digest shown, audit events with actor,
+- Engine: forti-cli v0.4.1 (c9cf77c): approvals bound to the digest shown, audit events with actor,
   summary and approver, `forti approve` in approval details.
 - forti_apply takes operations (plan and apply in one call) or plan_id; the result carries the plan
   (id, summary, risk, digest, diffs). forti_plan stays read-only.
@@ -19,4 +19,4 @@ One level of nested "  - " detail bullets is allowed. Consolidate; don't paste c
 - Without elicitation, approval_required relays `forti approve <id>` and `forti approve --watch`.
   The engine actor is mcp:<client>.
 - Build: hidden symbol visibility (startup ~25 ms to ~6 ms).
-- Release: Homebrew bottles for arm64 and Intel, built on macOS 15.
+- Release: the clean-install smoke test adds the ValkyrianLabs repository (the keyring dependency).
