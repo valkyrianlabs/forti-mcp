@@ -41,8 +41,8 @@ echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/valkyrianlabs.gpg] https://apt
   sudo tee /etc/apt/sources.list.d/valkyrianlabs.list > /dev/null
 
 sudo apt update
-sudo apt install -y forti-mcp
-sudo apt install -y forti-cli      # the forti CLI: the forti home, profiles, approvals, workspace
+sudo apt install -y forti-cli      # the forti CLI, which recommends (and so installs) forti-mcp
+sudo apt install -y forti-mcp      # forti-mcp alone, without the CLI
 ```
 
 The package installs `/usr/bin/forti-mcp`.
@@ -50,14 +50,14 @@ The package installs `/usr/bin/forti-mcp`.
 
 :::tab[Homebrew (macOS)]{value="homebrew"}
 ```bash
-brew install valkyrianlabs/tap/forti-mcp
-brew install valkyrianlabs/tap/forti-cli      # the forti CLI
+brew install valkyrianlabs/tap/forti-cli      # the forti CLI, with forti-mcp as a dependency
+brew install valkyrianlabs/tap/forti-mcp      # forti-mcp alone
 ```
 
 Recent Homebrew versions ask you to trust a third-party tap first (`brew trust valkyrianlabs/tap`).
 
-The formula builds from source, which takes a few minutes: the command engine's translation units
-need about 2 GB of RAM each, so the formula keeps the number of parallel compile jobs modest.
+Releases from 0.3 on ship bottles for Apple silicon, so the install takes seconds. Elsewhere (Intel
+Macs, or an older macOS than the bottle's) the formula builds from source, which takes a few minutes.
 :::
 
 :::tab[From source]{value="source"}
@@ -111,7 +111,7 @@ forti home: ~/.forti
   secrets      macOS Keychain (service "forti")
 ```
 
-The home is also where you start your AI agent: `forti install mcp --scope workspace` registers
+The home is also where you start your AI agent: `forti mcp install --scope workspace` registers
 forti-mcp there and nowhere else ([Connecting AI clients](/getting-started/connecting-clients)).
 [Command line](/reference/command-line#environment-and-files) lists the variables that move single
 locations.

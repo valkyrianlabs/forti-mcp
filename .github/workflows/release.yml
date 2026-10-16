@@ -159,10 +159,16 @@ jobs:
       # Builds from the prepared source archive with forti-api from valkyrianlabs/tap and the engine
       # from the formula's forti-cli resource, then runs the formula's test block (--version, an MCP
       # handshake and tools/list) and the smoke test.
-      - name: Install the release formula from a local tap and run its test block
+      - name: Install the release formula from a local tap, run its test block, make the bottle
         run: |
           brew install meson ninja pkgconf
           bash .github/scripts/homebrew-local-install.sh
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: forti-mcp-bottle-${{ needs.build.outputs.version }}
+          path: bottle
+          if-no-files-found: error
 
   publish-apt:
     name: Publish to the ValkyrianLabs APT repository
@@ -261,7 +267,7 @@ jobs:
   github-release:
     name: GitHub release
     runs-on: [self-hosted, Linux, X64, ubuntu-latest-lts]
-    needs: [build, publish-apt]
+    needs: [build, homebrew-check, publish-apt]
     permissions:
       contents: write
     defaults:
@@ -280,10 +286,19 @@ jobs:
           name: forti-mcp-${{ needs.build.outputs.version }}
           path: release
 
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: forti-mcp-bottle-${{ needs.build.outputs.version }}
+          path: bottle
+
+      # The build's artifacts are verified first; the macOS bottle then joins them (SHA256SUMS is
+      # written again to cover it).
       - name: Create or update the release (title/body from the prepared notes; assets immutable)
         run: |
           vlr prepare
           vlr checksums --verify
+          cp bottle/*.bottle.tar.gz release/
+          vlr checksums
           vlr github-release
 
   homebrew-tap:
@@ -314,9 +329,16 @@ jobs:
 
       # Downloads the formula's url (the GitHub release asset) and checks its sha256 before
       # committing; refuses to change a formula version that is already published.
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: forti-mcp-bottle-${{ needs.build.outputs.version }}
+          path: bottle
+
+      # The formula names the bottle the GitHub release now carries, so installs pour it.
       - name: Publish the formula
         run: |
           vlr prepare
+          python3 .github/scripts/homebrew-bottle-block.py release/homebrew/forti-mcp.rb bottle/*.bottle.json
           vlr homebrew publish --tap-dir homebrew-tap
 
   finalize:

@@ -107,7 +107,7 @@ For guarded mode to mean "a person approved this":
    shows it on its own).
 
 :::callout[Guidance, not enforcement]{variant="note"}
-The agent skill that `forti install mcp` can install tells agents never to approve plans or change
+The agent skill that `forti mcp install` can install tells agents never to approve plans or change
 modes, and the server's instructions say the same. That is guidance, not enforcement. The FortiOS
 account's privileges remain the boundary that holds in every case.
 :::

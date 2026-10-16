@@ -77,10 +77,10 @@ Read and plan results name the profile they used in `meta.profile`.
 
 ## A default device for a registration
 
-`--profile` in the client entry sets step 2 above. `forti install mcp` writes it for you:
+`--profile` in the client entry sets step 2 above. `forti mcp install` writes it for you:
 
 ```bash
-forti install mcp --client all --scope workspace --profile fw01
+forti mcp install --client all --scope workspace --profile fw01
 ```
 
 The tools' schemas then name that profile as the default, so the model sees which device it gets

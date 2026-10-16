@@ -36,7 +36,7 @@ through the **FortiOS REST API only**. It never runs SSH or CLI commands on the 
 
 ```bash
 forti configure                          # a device profile in ~/.forti
-forti install mcp --scope workspace      # the forti workspace: ~/.forti
+forti mcp install --scope workspace      # the forti workspace: ~/.forti
 cd ~/.forti && claude                    # or: cd ~/.forti && codex
 ```
 
@@ -101,7 +101,7 @@ requests and back. It never runs the `forti` executable, so the two packages ins
 :::callout[Install forti as well]{variant="info"}
 You still want `forti` next to forti-mcp. Device profiles and credentials are created with
 `forti configure`, guarded-mode approvals are given with `forti plan approve`, and
-`forti install mcp` sets up the workspace for Claude Code and Codex. Both programs use the same forti
+`forti mcp install` sets up the workspace for Claude Code and Codex. Both programs use the same forti
 home (`~/.forti`), so a plan made in one can be inspected, approved or applied in the other.
 :::
 
@@ -123,7 +123,7 @@ Install forti-mcp from the APT repository or Homebrew, or build it from source.
   href="/getting-started/connecting-clients"
   eyebrow="Getting started"
 }
-Set up the `~/.forti` workspace with `forti install mcp`, or register forti-mcp by hand.
+Set up the `~/.forti` workspace with `forti mcp install`, or register forti-mcp by hand.
 :::
 
 :::card[The workflow: discover, read, plan, apply]{

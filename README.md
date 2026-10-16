@@ -68,7 +68,7 @@ sudo apt update && sudo apt install forti-mcp
 [forti-cli](https://github.com/valkyrianlabs/forti-cli) and never runs the `forti` executable, so
 neither package depends on the other. You still want the `forti` CLI next to it (the
 `forti-cli` package or formula): device profiles and credentials are created with `forti configure`,
-guarded-mode approvals are given with `forti plan approve`, and `forti install mcp` sets up the agent
+guarded-mode approvals are given with `forti plan approve`, and `forti mcp install` sets up the agent
 workspace for Claude Code and Codex. The two use the same forti home, `~/.forti` (or `$FORTI_HOME`):
 profiles, file-stored credentials, certificates, plans and the audit log. A pre-0.2 setup in
 `~/.config/forti` keeps working until `forti home migrate` moves it.
@@ -81,7 +81,7 @@ Without forti-cli, write the client entry by hand (below) and provide `config.js
 2. Set up the forti workspace (recommended): forti-mcp registered in `~/.forti` only, with deny
    rules and a Codex permission profile that keep credentials out of the agent's context.
    ```sh
-   forti install mcp --scope workspace      # add --trust-codex-workspace for Codex
+   forti mcp install --scope workspace      # add --trust-codex-workspace for Codex
    cd ~/.forti && claude                    # or: cd ~/.forti && codex
    ```
    Agents started in any other project do not get the firewall tools.

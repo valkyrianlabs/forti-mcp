@@ -83,7 +83,7 @@ secret store. forti-mcp reads all of these itself; none of them needs to be in t
 
 ## The workspace keeps the agent out
 
-`forti install mcp --scope workspace` makes the forti home the agent's working directory, so it also
+`forti mcp install --scope workspace` makes the forti home the agent's working directory, so it also
 adds rules that keep the agent's own file tools away from the secrets beside it
 ([Connecting AI clients](/getting-started/connecting-clients#keeping-secrets-out-of-the-agents-context)):
 

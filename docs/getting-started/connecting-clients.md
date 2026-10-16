@@ -1,6 +1,6 @@
 ---
 title: Connecting AI clients
-description: Set up the ~/.forti workspace with forti install mcp, or register forti-mcp by hand with Claude Code, Codex or another MCP client.
+description: Set up the ~/.forti workspace with forti mcp install, or register forti-mcp by hand with Claude Code, Codex or another MCP client.
 order: 20
 status: published
 tags:
@@ -43,16 +43,16 @@ it for each FortiGate ([Several FortiGates](/guides/multiple-devices)).
 ### Install the workspace
 
 ```bash
-forti install mcp --scope workspace
+forti mcp install --scope workspace
 ```
 
-Run interactively, `forti install mcp` offers the workspace scope first, asks which clients to set
+Run interactively, `forti mcp install` offers the workspace scope first, asks which clients to set
 up, prints every command it will run and every file it will write, and changes nothing until you
-confirm. Without prompts:
+confirm: press Enter to apply. Without prompts:
 
 ```bash
-forti install mcp --client all --scope workspace --trust-codex-workspace --yes
-forti install mcp --client claude --scope workspace --dry-run      # show the changes, make none
+forti mcp install --client all --scope workspace --trust-codex-workspace --yes
+forti mcp install --client claude --scope workspace --dry-run      # show the changes, make none
 ```
 
 ### Start the agent in the workspace
@@ -104,7 +104,7 @@ tells the agent how to behave.
 
 :::callout[Not your home directory]{variant="warning"}
 A project or local registration in `$HOME` itself would give the tools to every agent started
-anywhere under it. `forti install mcp` warns and asks "Are you sure?" (default no), and without a
+anywhere under it. `forti mcp install` warns and asks "Are you sure?" (default no), and without a
 terminal refuses unless `--force` is given. Use the workspace instead.
 :::
 
@@ -136,21 +136,22 @@ Codex reads a project's `.codex/config.toml`, and with it both the `forti` serve
 `~/.forti` and accept its trust prompt, or let forti add the trust entry:
 
 ```bash
-forti install mcp --client codex --scope workspace --trust-codex-workspace
+forti mcp install --client codex --scope workspace --trust-codex-workspace
 ```
 
 That adds `[projects."<forti home>"] trust_level = "trusted"` to the global Codex configuration
-(`~/.codex/config.toml`). Interactively, forti asks first (default no). It never overrides a trust
+(`~/.codex/config.toml`). Interactively, forti asks first; Enter trusts it when you chose the
+workspace for Codex, and no leaves the Codex workspace inactive. It never overrides a trust
 entry you wrote yourself, and uninstall removes the entry only if forti added it. Restart Codex
 after a change to its configuration.
 
 ## Other scopes
 
-`forti install mcp` also writes the other scopes, for when the workspace does not fit:
+`forti mcp install` also writes the other scopes, for when the workspace does not fit:
 
 ```bash
-forti install mcp --client all --scope project --project-dir ~/src/netops   # a repository to commit
-forti install mcp --client claude --scope user --yes                         # every project
+forti mcp install --client all --scope project --project-dir ~/src/netops   # a repository to commit
+forti mcp install --client claude --scope user --yes                         # every project
 forti mcp repair                                    # fix entries whose forti-mcp moved or vanished
 forti mcp uninstall --client codex --scope user --yes
 ```
@@ -234,7 +235,7 @@ the agent works in a directory that holds forti's files.
 [Command-line options](/reference/command-line) go in the entry's arguments:
 
 ```bash
-forti install mcp --client claude --scope workspace --profile branch
+forti mcp install --client claude --scope workspace --profile branch
 claude mcp add --scope user forti -- forti-mcp --read-only
 codex mcp add forti -- forti-mcp --profile branch --max-bytes 65536
 ```
