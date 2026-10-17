@@ -259,6 +259,24 @@ class Guarded(McpTest):
         self.assertEqual(result["structuredContent"]["error"]["details"]["reason"], "declined")
         self.assertEqual(self.mock.writes(), [])
 
+    def test_in_chat_approval_names_the_child_table_entry(self) -> None:
+        self.mock.add_dhcp_server(1, **{"reserved-address": [{"id": 7, "ip": "192.0.2.7", "mac": "00:00:5e:00:53:07"}]})
+        mcp = self.session()
+        mcp.request("initialize", {"protocolVersion": "2025-11-25", "capabilities": {"elicitation": {}},
+                                   "clientInfo": {"name": "forti-it", "version": "1"}})
+        mcp.send({"jsonrpc": "2.0", "id": 70, "method": "tools/call",
+                  "params": {"name": "forti_apply", "arguments": {"operations": [
+                      {"op": "update", "resource": "system.dhcp/server", "parent": "1", "child": "reserved-address",
+                       "key": "7", "set": {"description": "nas"}}]}}})
+        ask = mcp.receive()
+        self.assertEqual(ask["method"], "elicitation/create")
+        self.assertIn('update system.dhcp/server "1" reserved-address "7"', ask["params"]["message"])
+        self.assertIn("description:", ask["params"]["message"])
+        mcp.send({"jsonrpc": "2.0", "id": ask["id"], "result": {"action": "accept", "content": {"approve": True}}})
+        data = self.ok(mcp.receive()["result"])["data"]
+        self.assertEqual(data["operations"][0]["status"], "verified")
+        self.assertEqual(self.mock.reservations(1)[7]["description"], "nas")
+
     def test_modern_in_chat_approval(self) -> None:
         mcp = self.session()
         arguments = {"operations": [ADDRESS]}
@@ -319,6 +337,31 @@ class Autonomous(McpTest):
         self.cli("apply", applied["rollback"]["plan_id"])
         self.assertEqual(sorted(self.mock.table("firewall/address")), ["old"])
         self.assertEqual(self.mock.table("firewall/address")["old"]["comment"], "before")
+
+    def test_child_table_entries_in_one_call_and_cli_rollback(self) -> None:
+        self.mock.add_dhcp_server(1, **{"reserved-address": [{"id": 7, "ip": "192.0.2.7", "mac": "00:00:5e:00:53:07"},
+                                                             {"id": 8, "ip": "192.0.2.8", "mac": "00:00:5e:00:53:08"}]})
+        mcp = self.session()
+        mcp.initialize()
+        listed = self.ok(mcp.call("forti_read", {"resource": "system.dhcp/server", "key": 1, "child": "reserved-address",
+                                                 "fields": ["id", "ip"]}))
+        self.assertEqual([e["id"] for e in listed["data"]], [7, 8])
+        entry = {"resource": "system.dhcp/server", "parent": "1", "child": "reserved-address"}
+        data = self.ok(mcp.call("forti_apply", {"operations": [
+            {"op": "create", **entry, "object": {"ip": "192.0.2.50", "mac": "00:00:5e:00:53:32", "description": "tv"}},
+            {"op": "update", **entry, "key": 7, "set": {"description": "nas"}},
+            {"op": "delete", **entry, "key": "8"}]}))["data"]
+        self.assertEqual([op["status"] for op in data["operations"]], ["verified"] * 3, data)
+        self.assertEqual(data["operations"][0]["key"], "9", "the id the device assigned")
+        self.assertEqual(sorted(self.mock.reservations(1)), [7, 9])
+        self.assertEqual([(w.method, w.api) for w in self.mock.writes()],
+                         [("POST", "cmdb/system.dhcp/server/1/reserved-address"),
+                          ("PUT", "cmdb/system.dhcp/server/1/reserved-address/7"),
+                          ("DELETE", "cmdb/system.dhcp/server/1/reserved-address/8")])
+        # The CLI rolls back exactly those entries.
+        self.cli("apply", data["rollback"]["plan_id"])
+        self.assertEqual(sorted(self.mock.reservations(1)), [7, 8])
+        self.assertEqual(self.mock.reservations(1)[7].get("description", ""), "")
 
     def test_critical_apply_backs_up_privately(self) -> None:
         mcp = self.session()

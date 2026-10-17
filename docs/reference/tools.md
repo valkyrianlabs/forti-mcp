@@ -147,7 +147,9 @@ Read configuration (cmdb tables and singletons) or monitor data over the FortiOS
 | Field | Type | Description |
 |---|---|---|
 | `resource` | string, 1 to 256 characters, **required** | Resource path from `forti_discover`: `firewall/address`, `firewall/policy`, `system/global`, `monitor/system/status`, ... |
-| `key` | string or integer | Table object key (its name, or the number for policyid-style keys) |
+| `key` | string or integer | Table object key (its name, or the number for policyid-style keys); with `child`, the parent object's key |
+| `child` | string, 1 to 128 characters | A table attribute of the object `key` (a child table, e.g. `reserved-address` of `system.dhcp/server`): its entries instead of the object |
+| `child_key` | string or integer | With `child`: only this entry (its id or name) |
 | `filter` | array of up to 32 strings | FortiOS filter clauses, ANDed: `["type==ipmask", "name=@lan"]` |
 | `fields` | array of up to 200 strings | Return only these attributes, e.g. `["name", "subnet"]` |
 | `start` | integer, at least 0 | First item (default 0); continue with `meta.next_start` |
@@ -158,7 +160,13 @@ Read configuration (cmdb tables and singletons) or monitor data over the FortiOS
 
 Each string in `filter` and `fields` is 1 to 256 characters. Filter operators are `==`, `!=`, `=@`,
 `!@`, `<`, `<=`, `>` and `>=`; a comma inside one clause ORs. Attribute names in `filter` and
-`fields` are checked against the catalog.
+`fields` are checked against the catalog; with `child`, against the entry's attributes. `child` must
+be a table attribute of the resource with keyed entries (`validation` otherwise, with the table
+attributes it has).
+
+```json
+{"resource": "system.dhcp/server", "key": 1, "child": "reserved-address", "fields": ["id", "ip", "mac", "description"]}
+```
 
 `data` is the device's JSON as FortiOS sent it (an object for `key` and singletons, an array for
 listings), with secrets replaced by `"<redacted>"`. `meta` has `resource`, `profile`, `device`
@@ -183,11 +191,25 @@ Each operation:
 |---|---|---|
 | `op` | `create`, `update`, `delete`, `action`, **required** | |
 | `resource` | string, 1 to 256 characters, **required** | A cmdb resource; for `action` a monitor path (`monitor/...`) |
-| `key` | string or integer | `update`, `delete`: the object's key |
+| `key` | string or integer | `update`, `delete`: the object's key; with `parent`/`child`, the entry's key |
+| `parent` | string or integer | With `child`: the key of the object whose table attribute holds the entry |
+| `child` | string, 1 to 128 characters | With `parent`: the table attribute (`reserved-address`); the operation changes one entry |
 | `object` | object | `create`: the new object's attributes |
 | `set` | object | `update`: attributes to change |
 | `clear` | array of up to 200 strings | `update`: attributes to reset to their defaults |
 | `body` | object | `action`: the request body |
+
+With `parent` and `child`, `create`, `update` and `delete` change one entry of a table attribute on
+FortiOS's child paths (`cmdb/system.dhcp/server/1/reserved-address/21`) and leave the object's other
+entries alone. `object`, `set` and `clear` then name the entry's attributes, a numeric id left out of
+`create` (or 0) is assigned by the device and reported as the operation's `key`, and the plan's
+before-state, drift check, verification and rollback are that entry's. Prefer it to setting a whole
+table attribute on the object, which replaces the list:
+
+```json
+{"op": "update", "resource": "system.dhcp/server", "parent": "1", "child": "reserved-address", "key": "21",
+ "set": {"description": "printer"}}
+```
 
 `data` has the plan `id` (pass it to `forti_apply` as `plan_id`), `digest`, `kind`, `created_at`,
 `device` (profile, host, port, vdom, serial, version), `risk`, `summary`, `operations` (each with its

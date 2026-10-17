@@ -172,6 +172,36 @@ TEST(Stdio, ModernStatelessRequests) {
     EXPECT_EQ(messages[1]["result"]["tools"].size(), 2u);
 }
 
+// The published schemas take child tables (strictly: still additionalProperties false), and a call
+// using them gets past schema validation to the engine.
+TEST(Stdio, ChildTableArgumentsAreInTheSchemas) {
+    auto result = run({}, lines({initialize(),
+                                 {{"jsonrpc", "2.0"}, {"id", 2}, {"method", "tools/list"}},
+                                 {{"jsonrpc", "2.0"}, {"id", 3}, {"method", "tools/call"},
+                                  {"params", {{"name", "forti_read"},
+                                              {"arguments", {{"resource", "system.dhcp/server"}, {"key", 1},
+                                                             {"child", "reserved-address"}, {"child_key", 21}}}}}}}));
+    EXPECT_EQ(result.status, 0) << result.err;
+    auto messages = result.messages();
+    ASSERT_EQ(messages.size(), 3u) << result.out;
+    json read, plan;
+    for (const auto& tool: messages[1]["result"]["tools"]) {
+        if (tool["name"] == "forti_read") read = tool["inputSchema"];
+        if (tool["name"] == "forti_plan") plan = tool["inputSchema"];
+    }
+    EXPECT_EQ(read["additionalProperties"], false);
+    EXPECT_TRUE(read["properties"].contains("child"));
+    EXPECT_TRUE(read["properties"].contains("child_key"));
+    const json& operation = plan["properties"]["operations"]["items"];
+    EXPECT_EQ(operation["additionalProperties"], false);
+    EXPECT_TRUE(operation["properties"].contains("parent"));
+    EXPECT_TRUE(operation["properties"].contains("child"));
+    EXPECT_FALSE(operation["properties"].contains("child_key"));
+    // No profile is configured: the engine answers (config), not the schema check (usage).
+    const json& envelope = messages[2]["result"]["structuredContent"];
+    EXPECT_EQ(envelope["error"]["code"], "config") << envelope.dump();
+}
+
 TEST(Stdio, MalformedAndHugeLinesGetErrorsAndServingContinues) {
     std::string input = "not json\n";
     input += "[]\n";
