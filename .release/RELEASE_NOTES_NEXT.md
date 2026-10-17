@@ -25,6 +25,6 @@ rewriting the rest of the list.
   as other secrets are.
 - The tool schemas stay strict; every existing call works as before.
 
-Built on forti-cli's engine with child tables (forti-api 1.2.0). The agent skill that comes with
+Built on the forti-cli 0.5.0 engine (forti-api 1.2.0). The agent skill that comes with
 forti-cli (`forti install mcp`) describes them.
 

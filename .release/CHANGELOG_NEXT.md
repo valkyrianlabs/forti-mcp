@@ -10,5 +10,6 @@ One level of nested "  - " detail bullets is allowed. Consolidate; don't paste c
 - Child tables: forti_read takes child and child_key; operations take parent and child (strict
   schemas, additionalProperties false); the approval prompt names parent, child and entry, and says a
   child delete leaves the other entries alone. Unit, e2e and integration tests (mock FortiOS child paths).
-- Engine: forti-cli with child tables and webhook header redaction (requires forti-api >= 1.2.0).
+- Engine: forti-cli v0.5.0 (child tables, webhook header redaction); requires forti-api >= 1.2.0.
+- Homebrew: the bottle block aligns tags and digests and lists ARM bottles first (brew style).
 
