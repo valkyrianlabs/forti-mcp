@@ -1,3 +1,16 @@
+forti-mcp (0.5.0-1) unstable; urgency=medium
+
+  * Child tables: forti_read takes child and child_key; operations take parent
+    and child (strict schemas, additionalProperties false); the approval prompt
+    names parent, child and entry, and says a child delete leaves the other
+    entries alone. Unit, e2e and integration tests (mock FortiOS child paths).
+  * Engine: forti-cli v0.5.0 (child tables, webhook header redaction); requires
+    forti-api >= 1.2.0.
+  * Homebrew: the bottle block aligns tags and digests and lists ARM bottles
+    first (brew style).
+
+ -- Cooper Larson <cooper@valkyrianlabs.com>  Sat, 17 Oct 2026 19:40:03 +0000
+
 forti-mcp (0.4.1-1) unstable; urgency=medium
 
   * Engine: forti-cli v0.4.2 (468f9e1) on forti-api 1.1.1 (builds on macOS 15 /
