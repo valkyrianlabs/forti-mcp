@@ -8,6 +8,9 @@
 
 #include <gtest/gtest.h>
 
+#include <cstdlib>
+#include <filesystem>
+
 using json = nlohmann::json;
 using forti::mcp::Server;
 using forti::mcp::ServerOptions;
@@ -305,3 +308,71 @@ TEST_F(Tools, ReadRedactsDeviceSecretsAndCannotReveal) {
     EXPECT_EQ(refused["error"]["code"], "usage");
 }
 
+
+// ---- child tables ----
+
+TEST_F(Tools, ReadAChildTable) {
+    json entry = {{"id", 21}, {"ip", "192.0.2.21"}, {"mac", "00:00:5e:00:53:15"}};
+    transport->reply(200, forti::fake::envelope(json::array({entry})));
+    json env = envelope(call("forti_read", {{"resource", "system.dhcp/server"}, {"key", 1}, {"child", "reserved-address"},
+                                            {"fields", {"id", "ip"}}}));
+    ASSERT_TRUE(env["ok"]) << env.dump();
+    EXPECT_EQ(env["meta"]["child"], "reserved-address");
+    EXPECT_NE(transport->requests.back().url.find("cmdb/system.dhcp/server/1/reserved-address?format=id%7Cip"), std::string::npos);
+
+    transport->reply(200, forti::fake::envelope(json::array({entry})));
+    env = envelope(call("forti_read", {{"resource", "system.dhcp/server"}, {"key", "1"}, {"child", "reserved-address"},
+                                       {"child_key", 21}}));
+    ASSERT_TRUE(env["ok"]) << env.dump();
+    EXPECT_EQ(env["data"]["ip"], "192.0.2.21");
+    EXPECT_NE(transport->requests.back().url.find("reserved-address/21"), std::string::npos);
+
+    // Schema-strict: types and lengths; the engine checks the rest (child is a table attribute).
+    std::size_t sent = transport->requests.size();
+    for (json arguments: {json{{"resource", "system.dhcp/server"}, {"key", 1}, {"child", 5}},
+                          json{{"resource", "system.dhcp/server"}, {"key", 1}, {"child", ""}},
+                          json{{"resource", "system.dhcp/server"}, {"key", 1}, {"child", "reserved-address"}, {"child_key", json::array()}},
+                          json{{"resource", "system.dhcp/server"}, {"key", 1}, {"childkey", 21}}}) {
+        env = envelope(call("forti_read", arguments));
+        EXPECT_EQ(env["error"]["code"], "usage") << arguments.dump();
+    }
+    env = envelope(call("forti_read", {{"resource", "system.dhcp/server"}, {"key", 1}, {"child", "dns-service"}}));
+    EXPECT_EQ(env["error"]["code"], "validation");
+    EXPECT_EQ(transport->requests.size(), sent);
+}
+
+TEST_F(Tools, PlanOneEntryOfAChildTable) {
+    // Planning stores the plan: a private state directory for this test.
+    std::string pattern = (std::filesystem::temp_directory_path() / "forti-mcp-child-XXXXXX").string();
+    std::filesystem::path dir = ::mkdtemp(pattern.data());
+    struct Cleanup {
+        std::filesystem::path dir;
+        ~Cleanup() { std::filesystem::remove_all(dir); }
+    } cleanup{dir};
+    auto options = forti::fake::options(transport);
+    options.paths = {dir / "config", dir / "state", dir / "cache", {}};
+    forti::engine::Engine planner(options);
+    Server server(planner, {});
+
+    transport->reply(200, forti::fake::envelope(json::array({{{"id", 21}, {"ip", "192.0.2.21"}, {"description", "old"}}})));
+    json env = envelope(call(server, "forti_plan", {{"operations", {{{"op", "update"}, {"resource", "system.dhcp/server"}, {"parent", 1},
+                                                             {"child", "reserved-address"}, {"key", 21},
+                                                             {"set", {{"description", "printer"}}}}}}}));
+    ASSERT_TRUE(env["ok"]) << env.dump();
+    const json& op = env["data"]["operations"][0];
+    EXPECT_EQ(op["parent"], "1");
+    EXPECT_EQ(op["child"], "reserved-address");
+    EXPECT_EQ(op["wire"]["path"], "cmdb/system.dhcp/server/1/reserved-address/21");
+    EXPECT_EQ(op["wire"]["body"], json({{"description", "printer"}}));
+
+    std::size_t sent = transport->requests.size();
+    for (json operation: {json{{"op", "delete"}, {"resource", "system.dhcp/server"}, {"parent", json::object()}, {"child", "x"}, {"key", 1}},
+                          json{{"op", "delete"}, {"resource", "system.dhcp/server"}, {"parent", 1}, {"child", ""}, {"key", 1}},
+                          json{{"op", "delete"}, {"resource", "system.dhcp/server"}, {"parent", 1}, {"child_key", 1}, {"key", 1}}}) {
+        env = envelope(call(server, "forti_plan", {{"operations", {operation}}}));
+        EXPECT_EQ(env["error"]["code"], "usage") << operation.dump();
+    }
+    env = envelope(call(server, "forti_plan", {{"operations", {{{"op", "delete"}, {"resource", "system.dhcp/server"}, {"parent", 1}, {"key", 1}}}}}));
+    EXPECT_EQ(env["error"]["code"], "usage");   // the engine: parent and child go together
+    EXPECT_EQ(transport->requests.size(), sent);
+}

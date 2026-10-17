@@ -117,11 +117,16 @@ namespace forti::mcp {
             std::vector<std::string> lines;
             std::string kind = string_of(op, "op");
             std::string head = std::format("{}. {} {}", number, clean(kind, 16), clean(string_of(op, "resource"), 128));
+            // A child table entry: the parent object, its table attribute, then the entry's key.
+            std::string child = string_of(op, "child");
+            if (std::string parent = string_of(op, "parent"); !parent.empty() && !child.empty())
+                head += " \"" + clean(parent, 128) + "\" " + clean(child, 64);
             if (std::string key = string_of(op, "key"); !key.empty()) head += " \"" + clean(key, 128) + "\"";
             if (std::string risk = string_of(op, "risk"); !risk.empty() && risk != "low") head += std::format(" (risk {})", clean(risk, 16));
             lines.push_back(std::move(head));
             if (kind == "delete") {
-                lines.emplace_back("   deletes the object");
+                lines.emplace_back(child.empty() ? "   deletes the object"
+                                                 : std::format("   deletes this {} entry; the others are left alone", clean(child, 64)));
             } else if (kind == "action") {
                 const json& wire = op.value("wire", json::object());
                 lines.push_back("   request body: " + value_text(wire.is_object() ? wire.value("body", json()) : json()));

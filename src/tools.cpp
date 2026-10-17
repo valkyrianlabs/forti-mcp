@@ -210,7 +210,8 @@ namespace forti::mcp {
                     {"description",
                      std::format(
                              "Read configuration (cmdb tables and singletons) or monitor data over the FortiOS REST API. "
-                             "Narrow with key (one table object), fields (only these attributes), filter (FortiOS "
+                             "Narrow with key (one table object; with child, the entries of one of its table "
+                             "attributes, child_key for one entry), fields (only these attributes), filter (FortiOS "
                              "syntax: attr==value, also != =@ !@ < <= > >=; items are ANDed, a comma inside one item "
                              "ORs) and start/count. Results are capped at {} bytes of JSON: when meta.truncated is true "
                              "or meta.next_start is present, call again with start=meta.next_start or narrow the "
@@ -230,7 +231,14 @@ namespace forti::mcp {
                                                       "address\") or a last word only one resource has (\"address\"). A "
                                                       "table object can be named by its path: firewall/address/web."}}},
                         {"key", {{"type", {"string", "integer"}},
-                                 {"description", "Table object key (its name, or the number for policyid-style keys)."}}},
+                                 {"description", "Table object key (its name, or the number for policyid-style keys). "
+                                                 "With child: the parent object's key."}}},
+                        {"child", {{"type", "string"}, {"minLength", 1}, {"maxLength", 128},
+                                   {"description", "A table attribute of the object `key` (a child table, e.g. "
+                                                   "\"reserved-address\" of system.dhcp/server): read its entries instead "
+                                                   "of the object. fields and filter then name the entry's attributes."}}},
+                        {"child_key", {{"type", {"string", "integer"}},
+                                       {"description", "With child: read only this entry (its id or name)."}}},
                         {"filter", strings("FortiOS filter clauses, ANDed: [\"type==ipmask\", \"name=@lan\"].", 32)},
                         {"fields", strings("Return only these attributes, e.g. [\"name\", \"subnet\"].", 200)},
                         {"start", start_property()},
@@ -255,7 +263,16 @@ namespace forti::mcp {
                      {{"op", {{"type", "string"}, {"enum", {"create", "update", "delete", "action"}}}},
                       {"resource", {{"type", "string"}, {"minLength", 1}, {"maxLength", 256},
                                     {"description", "cmdb resource; for op=action a monitor path (monitor/...)."}}},
-                      {"key", {{"type", {"string", "integer"}}, {"description", "update/delete: the object's key."}}},
+                      {"key", {{"type", {"string", "integer"}},
+                               {"description", "update/delete: the object's key; with parent/child, the entry's key."}}},
+                      {"parent", {{"type", {"string", "integer"}},
+                                  {"description", "With child: the key of the object whose table attribute holds the "
+                                                  "entry (create/update/delete of one entry)."}}},
+                      {"child", {{"type", "string"}, {"minLength", 1}, {"maxLength", 128},
+                                 {"description", "With parent: the table attribute (e.g. \"reserved-address\"); the "
+                                                 "operation changes one entry and leaves the others alone. object/set/clear "
+                                                 "name the entry's attributes; a numeric id left out of create is "
+                                                 "assigned by the device."}}},
                       {"object", {{"type", "object"}, {"description", "create: the new object's attributes."}}},
                       {"set", {{"type", "object"}, {"description", "update: attributes to change."}}},
                       {"clear", strings("update: attributes to reset to their defaults.", 200)},
@@ -265,7 +282,10 @@ namespace forti::mcp {
         json operations_property() {
             return {{"type", "array"}, {"minItems", 1}, {"items", operation_schema()},
                     {"description", "Run in order: create {resource, object}, update {resource, key, set, clear}, "
-                                    "delete {resource, key}, action {resource: monitor/..., body}."}};
+                                    "delete {resource, key}, action {resource: monitor/..., body}. One entry of a "
+                                    "table attribute: add parent (the object's key) and child (the attribute) to "
+                                    "create/update/delete; key is then the entry's. Prefer this to setting the whole "
+                                    "table attribute on the object."}};
         }
 
         json vdom_property() {

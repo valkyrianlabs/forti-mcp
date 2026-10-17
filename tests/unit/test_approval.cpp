@@ -218,3 +218,24 @@ TEST(Clients, LabelAndCapabilities) {
     EXPECT_FALSE(supports_form_elicitation({{"roots", json::object()}}));
     EXPECT_FALSE(supports_form_elicitation(json::object()));
 }
+
+// One entry of a child table: the person sees the parent object, the table attribute and the entry.
+TEST(Proposal, NamesTheParentAndChildOfAnEntry) {
+    json plan = plan_with(json::array(
+            {{{"index", 0}, {"op", "update"}, {"resource", "system.dhcp/server"}, {"parent", "1"}, {"child", "reserved-address"},
+              {"key", "21"}, {"risk", "elevated"},
+              {"diff", {{{"attribute", "description"}, {"change", "set"}, {"before", "old"}, {"after", "printer"}}}}},
+             {{"index", 1}, {"op", "delete"}, {"resource", "system.dhcp/server"}, {"parent", "1"}, {"child", "reserved-address"},
+              {"key", "7"}, {"risk", "elevated"}, {"diff", json::array()}},
+             {{"index", 2}, {"op", "create"}, {"resource", "system.dhcp/server"}, {"parent", "1"}, {"child", "reserved-address\x1b[2J"},
+              {"risk", "elevated"}, {"diff", {{{"attribute", "ip"}, {"change", "add"}, {"before", nullptr}, {"after", "192.0.2.50"}}}}}}));
+    std::string message = proposal_message(plan);
+    for (std::string expected: {"1. update system.dhcp/server \"1\" reserved-address \"21\" (risk elevated)",
+                                "   description: old → printer",
+                                "2. delete system.dhcp/server \"1\" reserved-address \"7\" (risk elevated)",
+                                "   deletes this reserved-address entry; the others are left alone",
+                                "3. create system.dhcp/server \"1\" reserved-address"})
+        EXPECT_NE(message.find(expected), std::string::npos) << expected << "\n---\n" << message;
+    EXPECT_EQ(message.find('\x1b'), std::string::npos);   // device and model text is sanitized here too
+    EXPECT_EQ(message.find("deletes the object"), std::string::npos);
+}
