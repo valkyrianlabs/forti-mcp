@@ -1,0 +1,51 @@
+[project]
+title = "forti-mcp"
+description = "An MCP server for FortiGate firewalls, over the FortiOS REST API only."
+
+[[stack.languages]]
+name = "C++23"
+
+[[stack.protocols]]
+name = "Model Context Protocol"
+
+[[stack.protocols]]
+name = "JSON-RPC 2.0"
+
+[[stack.libraries]]
+name = "forti-cli engine"
+
+[[stack.libraries]]
+name = "forti-api"
+
+[[stack.libraries]]
+name = "nlohmann/json"
+
+[[stack.apis]]
+name = "FortiOS REST API"
+
+[[stack.security]]
+name = "macOS Keychain"
+
+[[stack.build]]
+name = "Meson"
+
+[[stack.build]]
+name = "Ninja"
+
+[[stack.testing]]
+name = "GoogleTest"
+
+[[stack.testing]]
+name = "ASan/UBSan"
+
+[[stack.packaging]]
+name = "Debian packages"
+
+[[stack.packaging]]
+name = "Homebrew"
+
+[[stack.infrastructure]]
+name = "GitHub Actions"
+
+[[stack.infrastructure]]
+name = "Podman"
