@@ -1,3 +1,5 @@
+![forti-mcp](https://media.valkyrianlabs.com/forti-mcp.png)
+
 # forti-mcp
 
 An [MCP](https://modelcontextprotocol.io) server for FortiGate firewalls. It lets an AI client (Claude
