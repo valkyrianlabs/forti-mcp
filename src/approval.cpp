@@ -4,6 +4,8 @@
 #include "crypto.hpp"
 
 #include <algorithm>
+#include <cstdint>
+#include <iterator>
 #include <format>
 
 namespace forti::mcp {
@@ -113,6 +115,38 @@ namespace forti::mcp {
             return line;
         }
 
+        // "20.0 MiB" (whole bytes below 1 KiB): the size a person can take in at a glance.
+        std::string size_text(std::uint64_t bytes) {
+            if (bytes < 1024) return std::format("{} bytes", bytes);
+            const char* units[] = {"KiB", "MiB", "GiB", "TiB"};
+            double value = static_cast<double>(bytes) / 1024;
+            std::size_t unit = 0;
+            for (; value >= 1024 && unit + 1 < std::size(units); ++unit) value /= 1024;
+            return std::format("{:.1f} {}", value, units[unit]);
+        }
+
+        // An action's body as the person is shown it: inline bodies as the value (capped like any
+        // value); a body the engine stored by digest (forti-cli 0.6+: over 64 KiB, the wire record
+        // carries "body_ref" {sha256, bytes} instead) by its size and SHA-256, never its content.
+        std::string body_line(const json& wire) {
+            if (!wire.is_object()) return "   request body: (none)";
+            if (auto ref = wire.find("body_ref"); ref != wire.end()) {
+                auto sha = ref->is_object() ? ref->find("sha256") : ref->end();
+                auto bytes = ref->is_object() ? ref->find("bytes") : ref->end();
+                bool valid = ref->is_object() && sha != ref->end() && sha->is_string() && sha->get_ref<const std::string&>().size() == 64 &&
+                             std::ranges::all_of(sha->get_ref<const std::string&>(), [](char c) {
+                                 return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+                             }) &&
+                             bytes != ref->end() && bytes->is_number_integer() &&
+                             (bytes->is_number_unsigned() || bytes->get<std::int64_t>() >= 0);
+                if (!valid) return "   request body: stored separately (unreadable reference)";
+                std::uint64_t size = bytes->get<std::uint64_t>();
+                std::string shown = size < 1024 ? size_text(size) : std::format("{} ({} bytes)", size_text(size), size);
+                return std::format("   request body: {}, stored by digest, sha256 {}", shown, sha->get<std::string>());
+            }
+            return "   request body: " + value_text(wire.value("body", json()));
+        }
+
         std::vector<std::string> operation_lines(const json& op, std::size_t number) {
             std::vector<std::string> lines;
             std::string kind = string_of(op, "op");
@@ -128,8 +162,7 @@ namespace forti::mcp {
                 lines.emplace_back(child.empty() ? "   deletes the object"
                                                  : std::format("   deletes this {} entry; the others are left alone", clean(child, 64)));
             } else if (kind == "action") {
-                const json& wire = op.value("wire", json::object());
-                lines.push_back("   request body: " + value_text(wire.is_object() ? wire.value("body", json()) : json()));
+                lines.push_back(body_line(op.value("wire", json::object())));
             }
             const json diff = op.value("diff", json::array());
             std::size_t shown = 0;

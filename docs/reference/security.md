@@ -62,7 +62,9 @@ as a value to write.
 :::callout[Limits of redaction]{variant="note"}
 Name-based redaction can miss an attribute that a later FortiOS version adds; `ENC ` values are
 caught whatever their name. Stored plan files keep the real values, because apply writes them and
-compares the device against them; they are owner-only (0600) files in `~/.forti/state/`.
+compares the device against them; they are owner-only (0600) files in `~/.forti/state/`, deleted once
+an apply has started executing them, and otherwise after the plan retention period (30 days by
+default; `forti home retention`).
 :::
 
 ## Where secrets and certificates live

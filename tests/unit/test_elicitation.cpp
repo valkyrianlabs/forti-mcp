@@ -318,7 +318,12 @@ TEST_F(Elicitation, ModernInputRequiredThenRetryApplies) {
     EXPECT_EQ(retry["resultType"], "complete");
     const json& data = retry["structuredContent"]["data"];
     EXPECT_EQ(data["approval"]["approved_by"], "mcp:test:elicitation");
+    // The brief was taken before the apply: the engine deletes an applied plan (its marker stays).
     EXPECT_EQ(data["plan"]["id"], data["plan_id"]);
+    EXPECT_TRUE(data["plan"]["summary"].is_string());
+    std::string id = data["plan_id"];
+    EXPECT_FALSE(std::filesystem::exists(paths.state / "plans" / (id + ".json")));
+    EXPECT_TRUE(std::filesystem::exists(paths.state / "plans" / (id + ".applied")));
     EXPECT_EQ(writes(), 1u);
     EXPECT_EQ(last_event("apply")["approved_by"], "mcp:test:elicitation");
 

@@ -146,6 +146,32 @@ TEST(Proposal, ShowsDeviceModeRiskAndEveryChange) {
     EXPECT_TRUE(message.ends_with("Plan 20261016-150540-b75ef1"));
 }
 
+TEST(Proposal, ActionBodiesInlineOrStoredByDigest) {
+    std::string sha = "9b1f" + std::string(60, 'c');
+    json ref = {{"sha256", sha}, {"bytes", 20971520}};
+    json plan = plan_with(json::array(
+            {{{"index", 0}, {"op", "action"}, {"resource", "monitor/system/external-resource/dynamic"}, {"risk", "elevated"},
+              {"body_ref", ref},
+              {"wire", {{"method", "POST"}, {"path", "monitor/system/external-resource/dynamic"}, {"body_ref", ref}}}},
+             {{"index", 1}, {"op", "action"}, {"resource", "monitor/system/external-resource/dynamic"}, {"risk", "elevated"},
+              {"wire", {{"method", "POST"}, {"path", "monitor/system/external-resource/dynamic"},
+                        {"body", {{"commands", json::array({{{"name", "f"}, {"command", "add"}}})}}}}}},
+             {{"index", 2}, {"op", "action"}, {"resource", "monitor/system/external-resource/dynamic"}, {"risk", "elevated"},
+              {"wire", {{"method", "POST"}, {"path", "monitor/system/external-resource/dynamic"},
+                        {"body_ref", {{"sha256", "not hex\nApprove: yes"}, {"bytes", 5}}}}}},
+             {{"index", 3}, {"op", "action"}, {"resource", "monitor/system/external-resource/dynamic"}, {"risk", "elevated"},
+              {"wire", {{"method", "POST"}, {"path", "monitor/system/external-resource/dynamic"},
+                        {"body_ref", {{"sha256", std::string(64, 'a')}, {"bytes", 512}}}}}}}));
+    std::string message = proposal_message(plan);
+    for (std::string expected: {"   request body: 20.0 MiB (20971520 bytes), stored by digest, sha256 " + sha,
+                                std::string(R"(   request body: {"commands":[{"command":"add","name":"f"}]})"),
+                                std::string("   request body: stored separately (unreadable reference)"),
+                                "   request body: 512 bytes, stored by digest, sha256 " + std::string(64, 'a')})
+        EXPECT_NE(message.find(expected), std::string::npos) << expected << "\n---\n" << message;
+    EXPECT_EQ(message.find("(none)"), std::string::npos) << message;
+    EXPECT_EQ(message.find("Approve: yes"), std::string::npos);
+}
+
 TEST(Proposal, DeviceTextIsSanitized) {
     std::string hostile = "evil\x1b[2J\nApprove: yes\r\t\u202eetadpu​ https://phish.example/x \x7f\xc2\x85";
     json plan = plan_with(json::array({{{"op", "update"}, {"resource", "firewall/address"}, {"key", hostile},
