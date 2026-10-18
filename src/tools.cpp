@@ -594,6 +594,13 @@ namespace forti::mcp {
             payload.value("client", "") != context.client || !payload["plan_id"].is_string() || !payload["digest"].is_string())
             return refuse("request_mismatch", "the approval answer belongs to a different request; nothing was applied");
         std::string plan_id = payload["plan_id"].get<std::string>();
+        // Taken now: once an apply has started, the engine deletes the plan (forti-cli 0.7), so it cannot
+        // be shown afterwards.
+        std::optional<json> brief;
+        if (arguments.contains("operations")) {
+            json shown = engine::Engine::envelope([&] { return engine::show_plan(engine_, plan_id); });
+            if (shown.value("ok", false)) brief = plan_brief(shown["data"]);
+        }
 
         Applied out;
         const json* answer = nullptr;
@@ -616,10 +623,7 @@ namespace forti::mcp {
                         std::string(do_not_reask), std::nullopt};
             out = approve_and_apply(plan_id, payload["digest"].get<std::string>(), context);
         }
-        if (arguments.contains("operations")) {
-            json shown = engine::Engine::envelope([&] { return engine::show_plan(engine_, plan_id); });
-            if (shown.value("ok", false)) attach_plan(out.envelope, plan_brief(shown["data"]));
-        }
+        if (brief) attach_plan(out.envelope, std::move(*brief));
         return out;
     }
 

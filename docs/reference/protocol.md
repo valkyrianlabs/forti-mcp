@@ -85,7 +85,10 @@ when the client declares it: `capabilities.elicitation` in `initialize` (legacy)
 The request is `mode: "form"` (left out for `2025-06-18`), a `message` with the proposal (device,
 mode, risk, every operation and attribute change, secrets redacted, the plan id; device text is
 stripped of control characters, URL schemes are defanged, and the whole is capped at 4000
-characters), and this schema:
+characters), and this schema. A monitor action's request body is shown inline; a body the engine
+stored by digest (over 64 KiB, such as a threat-feed push) is shown by its size and SHA-256, never its
+content: `request body: 20.0 MiB (20971520 bytes), stored by digest, sha256 9b1f…`. The digest is part
+of the plan digest the approval is bound to.
 
 ```json
 {"type": "object", "required": ["approve"],

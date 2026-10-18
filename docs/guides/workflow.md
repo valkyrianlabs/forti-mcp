@@ -269,10 +269,18 @@ A successful result (`data.status: "applied"`) lists every operation's status (`
 | `partial_failure` | Execution stopped at a failed operation. `details` has the per-operation record of what was applied |
 | `outcome_unknown` | A request may have reached the device without a reply. Read the device before planning again |
 | `management_connectivity_lost` | The probe after a critical change failed. The remaining operations were not attempted; `details` has the rollback plan, the backup and the before-state |
-| `policy_denied` | The profile is read-only, the plan was already applied, or a critical plan's backup failed |
+| `policy_denied` | The profile is read-only, the plan was already applied (`details.reason` `already_applied`), or a critical plan's backup failed |
+
+:::callout[Plans do not linger]{variant="note"}
+Once an apply has started executing a plan, whatever its outcome, the engine deletes the plan file;
+a small marker keeps the id, so applying it again is refused as already applied. A plan refused
+before anything was sent (stale, unapproved, read-only) is kept for a retry. Plans never applied,
+rollback plans and the markers are deleted after the plan retention period, 30 days unless a person
+changes it with `forti home retention DAYS`; no tool can change it.
+:::
 
 :::callout[Rolling back]{variant="tip"}
-The rollback plan is an ordinary stored plan. Apply it like any other (`forti_apply` or
-`forti apply <id>`), under the same mode rules. It needs a working management path; see
+The rollback plan is an ordinary stored plan, kept until it is applied or the retention period ends.
+Apply it like any other (`forti_apply` or `forti apply <id>`), under the same mode rules. It needs a working management path; see
 [Recovery aids are not guaranteed recovery](/guides/safety-and-modes#recovery-aids-are-not-guaranteed-recovery).
 :::
