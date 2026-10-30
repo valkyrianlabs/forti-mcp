@@ -57,11 +57,12 @@ The package installs `/usr/bin/forti-mcp`.
 
 :::tab[Homebrew (macOS)]{value="homebrew"}
 ```bash
-brew install valkyrianlabs/tap/forti-cli      # the forti CLI, with forti-mcp as a dependency
-brew install valkyrianlabs/tap/forti-mcp      # forti-mcp alone
+brew install valkyrianlabs/tap/forti-cli valkyrianlabs/tap/forti-mcp   # the forti CLI and forti-mcp
+brew install valkyrianlabs/tap/forti-mcp                               # forti-mcp alone
 ```
 
-Recent Homebrew versions ask you to trust a third-party tap first (`brew trust valkyrianlabs/tap`).
+No `brew tap` or `brew trust` step: Homebrew trusts the formulae named in full on the command line.
+Name each one you want; forti-cli does not pull in forti-mcp.
 
 Releases ship bottles for macOS 15 or later, on Apple silicon and Intel (from 0.4.1), so the install
 takes seconds. On an older macOS the formula builds from source, which takes a few minutes.
